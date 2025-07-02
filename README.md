@@ -6,7 +6,7 @@ This project demonstrates a minimal terminal-only client that can connect to rem
 
 The solution consists of three main components:
 
-1.  **Frontend Client** (`client.html`): A minimal web interface using xterm.js for terminal emulation.
+1.  **Frontend Client** (`packages/client/index.html`): A minimal web interface using xterm.js for terminal emulation.
 2.  **WebSocket Server** (`server.js`): A Node.js proxy server that handles WebSocket connections from the client and manages interactions with remote environments.
 3.  **Codespace Integration**: The server layer responsible for connecting to GitHub Codespaces, leveraging the GitHub CLI (`gh`) and SSH for robust terminal access.
 
@@ -21,8 +21,8 @@ The solution consists of three main components:
 -   ⚡ **Lightweight** - Minimal dependencies and fast loading.
 -   **Dynamic Codespace Management:** Client UI includes "Start/Stop Codespace" button, dynamically changing based on codespace state. "Connect Codespace" button changes to "Disconnect Codespace" when connected. Server-side logic to start a codespace if it's in a "Shutdown" state upon connection attempt. Server-side handlers for explicit "start" and "stop" codespace requests.
 -   **Improved Terminal Connectivity:** Switched to SSH tunneling via `gh codespace ssh --config` and `node-pty` for more robust terminal connections, resolving previous WebSocket redirection issues. Enhanced error reporting for SSH connection failures directly to the client terminal.
--   **Client-Side Enhancements:** Terminal height now dynamically fills the remaining browser window space using flexbox CSS and `xterm-addon-fit`. "Open Gemini" button added to the client, which writes a predefined command to the terminal. Ability to connect to a codespace by providing a GitHub repository URL.
--   **Port Configuration:** Client and server default ports adjusted to avoid conflicts (client on 8080, server on 3001).
+-   **Client-Side Enhancements:** Terminal height now dynamically fills the remaining browser window space using flexbox CSS and `xterm-addon-fit`. Ability to connect to a codespace by providing a GitHub repository URL.
+-   **Port Configuration:** Client and server default ports adjusted to avoid conflicts (client on 8080, server on 3001). The client now automatically sends the Gemini CLI command upon successful connection if the "Google" shell type is selected and an API key is provided.
 
 ## Installation & Setup
 
@@ -32,10 +32,10 @@ The solution consists of three main components:
 # Install Node.js dependencies
 npm init -y
 npm install ws node-pty
-# Install GitHub CLI (gh) if not already installed
-# Follow instructions at https://cli.github.com/
-# Ensure 'ssh' client is installed and in your system's PATH
 ```
+
+### GitHub CLI and SSH
+Ensure GitHub CLI (`gh`) is installed and configured, and `ssh` client is available in your system's PATH.
 
 ### Package.json Configuration
 
@@ -44,7 +44,7 @@ npm install ws node-pty
   "name": "minimal-terminal-client",
   "version": "1.0.0",
   "description": "Minimal terminal-only client for VS Code Codespaces",
-  "main": "server.js",
+  "main": "packages/server/codespace_connector.js",
   "scripts": {
     "start": "npm run start --workspace=server",
     "client": "cd packages/client && npx serve -l 8080 .",
@@ -92,14 +92,12 @@ npm run client
 ### 3. Connect to Remote Terminal
 
 1.  Open the client in your browser (e.g., `http://localhost:8080`)
-2.  Enter your GitHub Token in the input field and click "Authenticate".
+2.  Enter your GitHub Token in the input field and click "Authenticate". If you intend to use the Gemini CLI, ensure you select "Google" as the shell type and provide your Gemini API Key.
 3.  Select a Codespace from the dropdown or enter a GitHub Repository URL (e.g., `https://github.com/ngommans/mcode.git`) and click "Connect to Repo Codespace".
 4.  Click "Connect Codespace" to establish the terminal session. The button will change to "Disconnect Codespace" when connected.
 
 ## Next Steps
 
-1.  **Fix "Open Gemini" Button:** Ensure the command is correctly sent to the server for execution in the codespace.
-2.  **Reorganize UI:** Implement a connection menu consistent with the VS Code bottom-left icon, integrating with the command box to reduce button clutter.
 3.  **Port Tunneling Information:** Add support to view tunneling information on ports, allowing users to connect to running web applications (e.g., `localhost:3000` from the remote codespace).
 4.  **Integration with Other Consoles (MCP):** Explore integration with other consoles (potentially via a Multi-Console Protocol) to share and monitor debug and log messaging with a coding agent.
 5.  **Streamlined Startup Workflow:**
@@ -109,7 +107,7 @@ npm run client
     *   Connect and automatically open Gemini/Claude.
 6.  **GitHub PR Comments Integration:** Investigate plugging into GitHub (potentially via an existing Multi-Console Protocol) to create and monitor PR comments, enabling the agent to respond with check-ins/updates. (Need to cross-check if this brings us too close to existing headless agent flows).
 7.  **Voice Commanding/Instructions:** Explore options for voice commanding and instructions to improve the user experience, especially on mobile, to mitigate the challenges of a text-based messaging interface.
-8. Remove need for github cli and use oauth directly to ensure user has the right scopes - keys based does not allow starting/stopping of codespaces and we need to explore how to establish the tunnel either over websockets or by establishing the tunnel via server-side code instead of the cli dependency.
+8.  **Remove need for GitHub CLI:** Explore using OAuth directly to ensure the user has the right scopes. Key-based authentication does not allow starting/stopping of codespaces, and we need to explore how to establish the tunnel either over websockets or by establishing the tunnel via server-side code instead of the CLI dependency.
 
 ## Implementation Considerations
 
