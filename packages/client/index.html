@@ -40,60 +40,17 @@
         }
         
         .title {
-            color: #cccccc;
+            color: #007acc;
             font-size: 13px;
             font-weight: 500;
         }
         
-        .connection-status {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .status-indicator {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #ff6b6b;
-            transition: background-color 0.3s ease;
-        }
-        
-        .status-indicator.connected {
-            background: #51cf66;
-        }
-        
-        .status-text {
-            color: #888;
-            font-size: 12px;
-        }
-        
-        .controls {
-            display: flex;
-            gap: 8px;
-        }
-        
-        .control-button {
-            background: #333;
-            border: none;
-            color: #ccc;
-            padding: 4px 8px;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 11px;
-            transition: background-color 0.2s ease;
-        }
-        
-        .control-button:hover {
-            background: #444;
-        }
-        
         .terminal-container {
-            flex: 1; /* Allow it to grow within the body's flex column */
+            flex: 1;
             background: #0f0f0f;
-            overflow: hidden; /* Hide scrollbars if content overflows */
-            position: relative; /* Added for xterm.js to correctly position elements */
-            padding: 8px; /* Keep padding here */
+            overflow: hidden;
+            position: relative;
+            padding: 8px;
         }
         
         #terminal {
@@ -124,28 +81,47 @@
             padding: 24px;
             border-radius: 8px;
             border: 1px solid #333;
-            min-width: 400px;
+            width: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            position: relative; /* Added for close button positioning */
         }
         
         .modal-title {
             color: #fff;
-            margin-bottom: 16px;
-            font-size: 16px;
+            font-size: 18px;
+            text-align: center;
         }
-        
-        .form-group {
-            margin-bottom: 16px;
-        }
-        
-        .form-label {
-            display: block;
+
+        .close-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #2d2d2d;
+            border: none;
             color: #ccc;
-            margin-bottom: 4px;
-            font-size: 12px;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        .close-button:hover {
+            color: #fff;
+        }
+
+        .connection-step {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: flex-end; /* Right-align buttons */
+        }
+
+        .connection-step .form-input {
+            flex-grow: 1;
         }
         
         .form-input {
-            width: 100%;
             padding: 8px;
             background: #2d2d2d;
             border: 1px solid #444;
@@ -158,33 +134,115 @@
             outline: none;
             border-color: #007acc;
         }
-        
-        .modal-buttons {
-            display: flex;
-            gap: 8px;
-            justify-content: flex-end;
-        }
-        
-        .modal-button {
+
+        .step-button {
             padding: 8px 16px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
             font-size: 13px;
+            width: 120px;
+            text-align: center;
         }
-        
-        .modal-button.primary {
+
+        .step-button.primary {
             background: #007acc;
             color: white;
         }
-        
-        .modal-button.secondary {
-            background: #333;
+
+        .step-button.secondary {
+            background: #2d2d2d;
             color: #ccc;
         }
-        
-        .modal-button:hover {
+
+        .step-button.success {
+            background: #51cf66;
+            color: white;
+            cursor: default;
+        }
+
+        .step-button:hover:not(.success) {
             opacity: 0.9;
+        }
+
+        .shell-type-button {
+            padding: 8px 12px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background: #2d2d2d;
+            color: #ccc;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+
+        .shell-type-button.selected {
+            background: #007acc;
+            border-color: #007acc;
+            color: white;
+        }
+
+        .shell-type-button:hover:not(.selected) {
+            background: #3a3a3a;
+            border-color: #555;
+        }
+
+        .codespace-list {
+            border: 1px solid #333;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 8px;
+        }
+
+        .codespace-item {
+            padding: 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #cccccc; /* Ensure main text is light */
+        }
+
+        .codespace-item:last-child {
+            border-bottom: none;
+        }
+
+        .codespace-item:hover {
+            background: #2d2d2d;
+        }
+
+        .codespace-item.selected {
+            background: #007acc;
+            color: white;
+        }
+
+        .codespace-repo {
+            font-size: 11px;
+            color: #aaaaaa; /* Lighter grey for better contrast */
+        }
+
+        .codespace-item.selected .codespace-repo {
+            color: #ddd;
+        }
+
+        .info-box {
+            background: #2d2d2d;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 12px;
+            font-size: 12px;
+            color: #ccc;
+            min-height: 40px;
+            white-space: pre-wrap;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 16px;
         }
         
         .hidden {
@@ -192,9 +250,6 @@
         }
 
         .statusbar-item {
-            position: fixed;
-            bottom: 0;
-            left: 0;
             height: 22px;
             line-height: 22px;
             cursor: default;
@@ -209,30 +264,31 @@
             color: #fff;
             text-decoration: none;
         }
+
+        .statusbar-item.light-grey {
+            background-color: #3c3c3c; /* VS Code status bar grey */
+        }
+
+        .statusbar-item.light-grey .statusbar-item-label {
+            color: #f0f0f0;
+        }
+
+        .status-bar-container {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            display: flex;
+            flex-direction: row;
+        }
     </style>
 </head>
 <body>
     <div class="header">
-        <div class="title">Terminal Client</div>
-        <div class="connection-status">
-            <div class="status-indicator" id="statusIndicator"></div>
-            <span class="status-text" id="statusText">Disconnected</span>
-        </div>
+        <div class="title">Minimal Terminal Client</div>
         <div class="controls">
-            <input type="password" class="form-input" id="githubToken" placeholder="GitHub Token" style="width: 120px; margin-right: 8px;">
-            <button class="control-button" id="authenticateButton">Authenticate</button>
-            <button class="control-button" id="listCodespacesButton">List Codespaces</button>
-            <select class="form-input" id="codespaceSelect" style="width: 150px; margin-right: 8px;">
-                <option value="">--Select Codespace--</option>
-            </select>
-            <button class="control-button" id="connectCodespaceButton">Connect Codespace</button>
-            <button class="control-button" id="toggleCodespaceStateButton" style="display: none;">Start Codespace</button>
-            <button class="control-button" id="clearTerminalButton">Clear</button>
-            <button class="control-button" id="showConnectionModalButton">Connect</button>
-            <button class="control-button" id="reconnectButton">Reconnect</button>
-            <button class="control-button" id="openGeminiButton">Open Gemini</button>
-            <input type="text" class="form-input" id="repoUrlInput" placeholder="Repo URL (e.g., github.com/user/repo)" style="width: 250px; margin-left: 8px;">
-            <button class="control-button" id="connectRepoCodespaceButton">Connect to Repo Codespace</button>
+             <button class="control-button step-button primary" id="clearTerminalButton">Clear</button>
+             <button class="control-button step-button primary" id="openGeminiButton">Open Gemini</button>
         </div>
     </div>
     
@@ -240,29 +296,63 @@
         <div id="terminal"></div>
     </div>
     
-    <div class="connection-modal hidden" id="connectionModal">
+    <div class="connection-modal" id="connectionModal">
         <div class="modal-content">
             <h3 class="modal-title">Connect to Remote Terminal</h3>
-            <div class="form-group">
-                <label class="form-label">Server URL</label>
-                <input type="text" class="form-input" id="serverUrl" value="ws://localhost:3001" placeholder="ws://localhost:3001">
+            <button class="close-button" onclick="hideConnectionModal()">&times;</button>
+            
+            <div class="connection-step">
+                <input type="text" class="form-input" id="serverUrl" value="ws://localhost:3001" placeholder="Server URL">
+                <button class="step-button primary" id="connectServerButton">Connect</button>
             </div>
-            <div class="form-group">
-                <label class="form-label">Authentication Token (optional)</label>
-                <input type="password" class="form-input" id="authToken" placeholder="Enter authentication token">
+
+            <div class="connection-step">
+                <input type="password" class="form-input" id="githubToken" placeholder="GitHub Token">
+                <button class="step-button secondary" id="authenticateButton" disabled>Authenticate</button>
             </div>
+
+            
+
+            <div class="codespace-list" id="codespaceList">
+                <!-- Codespaces will be populated here -->
+            </div>
+
+            <div class="connection-step" style="justify-content: flex-end; gap: 16px;">
+                <label style="color: #ccc; font-size: 13px;">Shell Type:</label>
+                <button class="shell-type-button selected" data-shell-type="default">Default</button>
+                
+                <button class="shell-type-button" data-shell-type="google">Google</button>
+            </div>
+
+            <div class="connection-step hidden" id="geminiApiKeyInput" style="justify-content: flex-end; gap: 16px;">
+                <input type="password" class="form-input" id="geminiApiKey" placeholder="Gemini API Key">
+            </div>
+
+            <div class="info-box" id="infoBox">
+                Welcome! Please connect to the server to begin.
+            </div>
+
             <div class="modal-buttons">
-                <button class="modal-button secondary" onclick="hideConnectionModal()">Cancel</button>
-                <button class="modal-button primary" onclick="connectToServer()">Connect</button>
+                <button class="step-button secondary" onclick="hideConnectionModal()">Close</button>
+                <button class="step-button primary" id="connectCodespaceButton" disabled>Connect to Codespace</button>
             </div>
         </div>
     </div>
 
-    <div class="statusbar-item left remote-kind has-background-color first-visible-item" id="remote-status">
-        <a class="statusbar-item-label" role="button">
-            <span class="codicon codicon-remote"></span>
-            <span id="remote-status-text">Open Remote</span>
-        </a>
+    <div class="status-bar-container">
+        <div class="statusbar-item remote-kind has-background-color" id="remote-status">
+            <a class="statusbar-item-label" role="button">
+                <span class="codicon codicon-remote"></span>
+                <span id="remote-status-text">Open Remote</span>
+            </a>
+        </div>
+
+        <div class="statusbar-item light-grey" id="status.forwardedPorts" aria-label="No Ports Forwarded" custom-hover="true">
+            <a class="statusbar-item-label" role="button" tabindex="-1" aria-label="No Ports Forwarded">
+                <span class="codicon codicon-radio-tower"></span>
+                <span id="forwarded-ports-count">0</span>
+            </a>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
@@ -274,11 +364,13 @@
                 this.socket = null;
                 this.fitAddon = null;
                 this.isConnected = false;
+                this.isIntentionalDisconnect = false;
                 this.reconnectAttempts = 0;
                 this.maxReconnectAttempts = 5;
                 this.currentCodespaceName = null;
                 this.currentCodespaceState = null;
                 this.currentRepositoryFullName = null;
+                this.githubToken = null;
                 this.statusQueue = [];
                 this.isProcessingStatusQueue = false;
                 
@@ -382,9 +474,9 @@
                 });
                 
                 // Welcome message
-                this.terminal.writeln('\x1b[1;34mMinimal Terminal Client\x1b[0m');
-                this.terminal.writeln('\x1b[90mClick "Connect" to establish a connection to a remote terminal.\x1b[0m');
-                this.terminal.writeln('');
+                // this.terminal.writeln('\x1b[1;34mMinimal Terminal Client\x1b[0m');
+                // this.terminal.writeln('\x1b[90mClick "Connect" to establish a connection to a remote terminal.\x1b[0m');
+                // this.terminal.writeln('');
             }
             
             connect(url, token = '') {
@@ -392,7 +484,11 @@
                     this.socket.close();
                 }
                 
-                this.updateStatus('Connecting...', false);
+                this.updateInfoBox('Connecting to server...');
+                const connectServerButton = document.getElementById('connectServerButton');
+                connectServerButton.textContent = 'Connecting...';
+                connectServerButton.disabled = true;
+                connectServerButton.classList.remove('success', 'error');
                 
                 try {
                     this.socket = new WebSocket(url);
@@ -400,18 +496,18 @@
                     this.socket.onopen = () => {
                         this.isConnected = true;
                         this.reconnectAttempts = 0;
-                        this.updateStatus('Connected', true);
+                        this.updateInfoBox('Successfully connected to server. Please authenticate.');
+                        connectServerButton.textContent = 'Connected';
+                        connectServerButton.classList.add('success');
+                        document.getElementById('githubToken').disabled = false;
+                        document.getElementById('authenticateButton').disabled = false;
                         
                         // Send authentication if provided
                         if (token) {
                             this.authenticate(token);
+                        } else if (this.githubToken) {
+                            this.authenticate(this.githubToken);
                         }
-                        
-                        // Query codespace status after connecting to server
-                        this.socket.send(JSON.stringify({ type: 'query_codespace_status' }));
-                        
-                        this.terminal.writeln('\x1b[32m\u2713 Connected to remote terminal\x1b[0m');
-                        this.addStatusMessage('Connected to remote terminal');
                     };
                     
                     this.socket.onmessage = (event) => {
@@ -427,36 +523,58 @@
                     this.socket.onclose = () => {
                         this.isConnected = false;
                         this.updateStatus('Disconnected', false);
-                        this.terminal.writeln('\r\n\x1b[31m\u2717 Connection closed\x1b[0m');
+                        this.updateInfoBox('Connection closed.', true);
+                        connectServerButton.textContent = 'Reconnect';
+                        connectServerButton.classList.add('error');
+                        connectServerButton.disabled = false;
+                        document.getElementById('githubToken').disabled = true;
+                        document.getElementById('authenticateButton').textContent = 'Authenticate';
+                        document.getElementById('authenticateButton').classList.remove('success');
+                        document.getElementById('authenticateButton').disabled = true;
+                        document.getElementById('connectCodespaceButton').textContent = 'Connect to Codespace';
+                        document.getElementById('connectCodespaceButton').classList.remove('success');
+                        document.getElementById('connectCodespaceButton').disabled = true;
                         
                         // Auto-reconnect logic
-                        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+                        if (!this.isIntentionalDisconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
                             this.reconnectAttempts++;
-                            this.terminal.writeln(`\x1b[33mReconnecting... (${this.reconnectAttempts}/${this.maxReconnectAttempts})\x1b[0m`);
-                            setTimeout(() => this.connect(url, token), 2000);
+                            this.addStatusMessage(`Reconnecting... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+                            setTimeout(() => this.connect(url, this.githubToken), 2000);
+                        } else {
+                            this.isIntentionalDisconnect = false; // Reset the flag
                         }
                     };
                     
                     this.socket.onerror = (error) => {
                         this.updateStatus('Connection Error', false);
-                        this.terminal.writeln('\r\n\x1b[31m\u2717 Connection error\x1b[0m');
+                        this.updateInfoBox('Connection error. Please check the server URL and try again.', true);
+                        connectServerButton.textContent = 'Retry';
+                        connectServerButton.classList.add('error');
+                        connectServerButton.disabled = false;
                     };
                     
                 } catch (error) {
                     this.updateStatus('Connection Error', false);
-                    this.terminal.writeln('\r\n\x1b[31m\u2717 Invalid WebSocket URL\x1b[0m');
+                    this.updateInfoBox('Invalid WebSocket URL.', true);
+                    connectServerButton.textContent = 'Retry';
+                    connectServerButton.classList.add('error');
+                    connectServerButton.disabled = false;
                 }
             }
 
             authenticate(token) {
+                this.githubToken = token;
                 if (this.socket && this.socket.readyState === WebSocket.OPEN) {
                     this.socket.send(JSON.stringify({
                         type: 'authenticate',
                         token: token
                     }));
-                    this.terminal.writeln('\x1b[34mAuthenticating...\x1b[0m');
+                    this.updateInfoBox('Authenticating...');
+                    document.getElementById('authenticateButton').textContent = 'Authenticating...';
+                    document.getElementById('authenticateButton').disabled = true;
+                    document.getElementById('authenticateButton').classList.remove('error');
                 } else {
-                    this.terminal.writeln('\x1b[31mNot connected to server. Please connect first.\x1b[0m');
+                    this.updateInfoBox('Not connected to server. Please connect first.', true);
                 }
             }
 
@@ -465,9 +583,19 @@
                     this.socket.send(JSON.stringify({
                         type: 'list_codespaces'
                     }));
-                    this.terminal.writeln('\x1b[34mRequesting codespaces list...\x1b[0m');
+                    this.updateInfoBox('Requesting codespaces list...');
                 } else {
-                    this.terminal.writeln('\x1b[31mNot connected to server. Please connect first.\x1b[0m');
+                    this.updateInfoBox('Not connected to server. Please connect first.', true);
+                }
+            }
+
+            updateInfoBox(message, isError = false) {
+                const infoBox = document.getElementById('infoBox');
+                infoBox.textContent = message;
+                if (isError) {
+                    infoBox.style.color = '#ff6b6b';
+                } else {
+                    infoBox.style.color = '#ccc';
                 }
             }
 
@@ -477,10 +605,12 @@
                         type: 'connect_codespace',
                         codespace_name: codespaceName
                     }));
-                    this.terminal.writeln(`\x1b[34mConnecting to codespace: ${codespaceName}...\x1b[0m`);
-                    this.addStatusMessage(`Connecting to codespace: ${codespaceName}...`);
+                    this.updateInfoBox(`Connecting to codespace: ${codespaceName}...`);
+                    document.getElementById('connectCodespaceButton').textContent = 'Connecting...';
+                    document.getElementById('connectCodespaceButton').disabled = true;
+                    document.getElementById('connectCodespaceButton').classList.remove('error');
                 } else {
-                    this.terminal.writeln('\x1b[31mNot connected to server. Please connect first.\x1b[0m');
+                    this.updateInfoBox('Not connected to server. Please connect first.', true);
                 }
             }
 
@@ -489,9 +619,9 @@
                     this.socket.send(JSON.stringify({
                         type: 'disconnect_codespace'
                     }));
-                    this.terminal.writeln('\x1b[34mDisconnecting from codespace...\x1b[0m');
+                    this.updateInfoBox('Disconnecting from codespace...');
                 } else {
-                    this.terminal.writeln('\x1b[31mNot connected to server. Please connect first.\x1b[0m');
+                    this.updateInfoBox('Not connected to server. Please connect first.', true);
                 }
             }
 
@@ -501,9 +631,9 @@
                         type: 'start_codespace',
                         codespace_name: codespaceName
                     }));
-                    this.terminal.writeln(`\x1b[34mStarting codespace: ${codespaceName}...\x1b[0m`);
+                    this.updateInfoBox(`Starting codespace: ${codespaceName}...`);
                 } else {
-                    this.terminal.writeln('\x1b[31mNot connected to server. Please connect first.\x1b[0m');
+                    this.updateInfoBox('Not connected to server. Please connect first.', true);
                 }
             }
 
@@ -513,9 +643,9 @@
                         type: 'stop_codespace',
                         codespace_name: codespaceName
                     }));
-                    this.terminal.writeln(`\x1b[34mStopping codespace: ${codespaceName}...\x1b[0m`);
+                    this.updateInfoBox(`Stopping codespace: ${codespaceName}...`);
                 } else {
-                    this.terminal.writeln('\x1b[31mNot connected to server. Please connect first.\x1b[0m');
+                    this.updateInfoBox('Not connected to server. Please connect first.', true);
                 }
             }
             
@@ -524,47 +654,81 @@
                     case 'output':
                         this.terminal.write(message.data);
                         break;
-                    case 'error':                        this.terminal.writeln(`
-[31mError: ${message.message}[0m`);                        if (message.message.includes('Terminal session ended')) {                            this.addStatusMessage('Terminal session ended.');                        } else if (message.message === 'Bad credentials') {                            this.addStatusMessage('Error: Bad credentials');                        } else if (message.message === 'Not authenticated') {                            this.addStatusMessage('Connected: Not authenticated');                        }                        break;
+                    case 'error':
+                        this.updateInfoBox(`Error: ${message.message}`, true);
+                        if (message.message === 'Bad credentials') {
+                            const authenticateButton = document.getElementById('authenticateButton');
+                            authenticateButton.textContent = 'Retry';
+                            authenticateButton.classList.add('error');
+                            authenticateButton.disabled = false;
+                        } else if (message.message.includes('Terminal session ended')) {
+                            this.addStatusMessage('Terminal session ended.');
+                            const connectCodespaceButton = document.getElementById('connectCodespaceButton');
+                            connectCodespaceButton.textContent = 'Reconnect';
+                            connectCodespaceButton.classList.add('error');
+                            connectCodespaceButton.disabled = false;
+                        }
+                        break;
                     case 'authenticated':
-                        this.terminal.writeln('\x1b[32m\u2713 Authenticated successfully\x1b[0m');
-                        this.addStatusMessage('Connected: Authenticated');
-                        // Automatically list codespaces after authentication
+                        this.updateInfoBox('Authenticated successfully. Fetching codespaces...');
+                        const authenticateButton = document.getElementById('authenticateButton');
+                        authenticateButton.textContent = 'Authenticated';
+                        authenticateButton.classList.add('success');
                         this.listCodespaces();
+                        // If we were previously connected to a codespace, try to reconnect
+                        if (this.currentCodespaceName) {
+                            this.connectToCodespace(this.currentCodespaceName);
+                        }
                         break;
                     case 'codespaces_list':
                         const codespaces = message.data;
-                        const codespaceSelect = document.getElementById('codespaceSelect');
-                        codespaceSelect.innerHTML = '<option value="">--Select Codespace--</option>'; // Clear existing options
+                        const codespaceList = document.getElementById('codespaceList');
+                        codespaceList.innerHTML = ''; // Clear existing options
                         if (codespaces && codespaces.length > 0) {
+                            this.updateInfoBox(`Found ${codespaces.length} codespace(s). Please select one to connect.`);
                             codespaces.forEach(codespace => {
-                                const option = document.createElement('option');
-                                option.value = codespace.name;
-                                option.textContent = codespace.name;
-                                codespaceSelect.appendChild(option);
+                                const item = document.createElement('div');
+                                item.classList.add('codespace-item');
+                                item.dataset.codespaceName = codespace.name;
+
+                                const codespaceNameParts = codespace.name.split('-');
+                                codespaceNameParts.pop();
+                                const prettyName = codespaceNameParts.join(' ');
+
+                                item.innerHTML = `
+                                    <span>${prettyName}</span>
+                                    <span class="codespace-repo">${codespace.repository.full_name}</span>
+                                `;
+
+                                item.addEventListener('click', () => {
+                                    const allItems = document.querySelectorAll('.codespace-item');
+                                    allItems.forEach(i => i.classList.remove('selected'));
+                                    item.classList.add('selected');
+                                    document.getElementById('connectCodespaceButton').disabled = false;
+                                    document.getElementById('connectCodespaceButton').textContent = 'Connect to Codespace';
+                                    document.getElementById('connectCodespaceButton').classList.remove('success', 'error');
+                                });
+                                codespaceList.appendChild(item);
                             });
-                            this.terminal.writeln(`\x1b[32m\u2713 Found ${codespaces.length} codespace(s).\x1b[0m`);
-                            this.addStatusMessage(`Connected: ${codespaces.length} Codespace(s) available`);
                         } else {
-                            this.terminal.writeln('\x1b[33mNo codespaces found.\x1b[0m');
-                        }
-                        // After listing, if a codespace was previously selected, try to re-select it
-                        if (this.currentCodespaceName) {
-                            codespaceSelect.value = this.currentCodespaceName;
-                            this.updateCodespaceUI(this.currentCodespaceState);
+                            this.updateInfoBox('No codespaces found.', true);
                         }
                         break;
                     case 'codespace_state':
                         this.currentCodespaceName = message.codespace_name;
                         this.currentCodespaceState = message.state;
                         this.currentRepositoryFullName = message.repository_full_name;
-                        this.terminal.writeln(`\r\n\x1b[32mCodespace '${this.currentCodespaceName}' state: ${this.currentCodespaceState}\x1b[0m`);
                         this.updateCodespaceUI(message.state);
+                        if (message.state === 'Connected') {
+                            hideConnectionModal();
+                            const connectCodespaceButton = document.getElementById('connectCodespaceButton');
+                            connectCodespaceButton.textContent = 'Connected';
+                            connectCodespaceButton.classList.add('success');
+                        }
                         break;
                     case 'codespace_connection_status':
                         this.currentCodespaceName = message.codespace_name;
                         this.currentCodespaceState = message.state;
-                        this.terminal.writeln(`\r\n\x1b[32mCodespace connection status: ${this.currentCodespaceState}\x1b[0m`);
                         this.updateCodespaceUI(message.state);
                         break;
                     default:
@@ -573,78 +737,39 @@
             }
             
             updateStatus(text, connected) {
-                const indicator = document.getElementById('statusIndicator');
-                const statusText = document.getElementById('statusText');
                 const remoteStatusText = document.getElementById('remote-status-text');
-                const showConnectionModalButton = document.getElementById('showConnectionModalButton');
+                const forwardedPortsCount = document.getElementById('forwarded-ports-count');
 
-                statusText.textContent = text;
-                
                 if (connected) {
-                    indicator.classList.add('connected');
-                    showConnectionModalButton.textContent = 'Disconnect';
+                    // Don't change status text here, it will be updated by updateCodespaceUI
                 } else {
-                    indicator.classList.remove('connected');
                     remoteStatusText.textContent = 'Not Connected';
-                    showConnectionModalButton.textContent = 'Connect';
-                    if (this.reconnectAttempts === 0) {
-                        showConnectionModal();
-                    }
+                    forwardedPortsCount.textContent = '0';
+                    showConnectionModal();
                 }
             }
 
             updateCodespaceUI(state) {
                 const connectCodespaceButton = document.getElementById('connectCodespaceButton');
-                const toggleCodespaceStateButton = document.getElementById('toggleCodespaceStateButton');
-                const codespaceSelect = document.getElementById('codespaceSelect');
                 const remoteStatus = document.getElementById('remote-status');
                 const remoteStatusText = document.getElementById('remote-status-text');
 
                 if (state === 'Connected') {
-                    connectCodespaceButton.textContent = 'Disconnect Codespace';
-                    connectCodespaceButton.disabled = false;
-                    toggleCodespaceStateButton.style.display = 'inline-block';
-                    toggleCodespaceStateButton.textContent = 'Stop Codespace';
-                    toggleCodespaceStateButton.disabled = false;
-                    codespaceSelect.disabled = true;
-                    remoteStatusText.textContent = `Connected: ${this.currentCodespaceName}`;
-
                     const codespaceNameParts = this.currentCodespaceName.split('-');
                     codespaceNameParts.pop(); // Omit the last word
                     const formattedCodespaceName = codespaceNameParts.join(' ');
 
                     remoteStatusText.textContent = `Connected: ${formattedCodespaceName}`;
                     remoteStatus.title = `Editing on '${formattedCodespaceName}' (${this.currentRepositoryFullName})`;
+                    hideConnectionModal();
                 } else if (state === 'Shutdown') {
-                    connectCodespaceButton.textContent = 'Connect Codespace';
-                    connectCodespaceButton.disabled = false;
-                    toggleCodespaceStateButton.style.display = 'inline-block';
-                    toggleCodespaceStateButton.textContent = 'Start Codespace';
-                    toggleCodespaceStateButton.disabled = false;
-                    codespaceSelect.disabled = false;
                     remoteStatusText.textContent = 'Authenticated';
                 } else if (state === 'Starting') {
-                    connectCodespaceButton.textContent = 'Connect Codespace';
-                    connectCodespaceButton.disabled = true;
-                    toggleCodespaceStateButton.style.display = 'inline-block';
-                    toggleCodespaceStateButton.textContent = 'Starting...';
-                    toggleCodespaceStateButton.disabled = true;
-                    codespaceSelect.disabled = true;
                     remoteStatusText.textContent = 'Authenticated';
                 } else if (state === 'Stopping') {
-                    connectCodespaceButton.textContent = 'Connect Codespace';
-                    connectCodespaceButton.disabled = true;
-                    toggleCodespaceStateButton.style.display = 'inline-block';
-                    toggleCodespaceStateButton.textContent = 'Stopping...';
-                    toggleCodespaceStateButton.disabled = true;
-                    codespaceSelect.disabled = true;
                     remoteStatusText.textContent = 'Authenticated';
                 } else {
                     // Default or Disconnected state
-                    connectCodespaceButton.textContent = 'Connect Codespace';
-                    connectCodespaceButton.disabled = false;
-                    toggleCodespaceStateButton.style.display = 'none';
-                    codespaceSelect.disabled = false;
                     remoteStatusText.textContent = 'Not Connected';
                 }
             }
@@ -652,15 +777,10 @@
             clear() {
                 this.terminal.clear();
             }
-            
+
             reconnect() {
-                if (this.isConnected) {
-                    this.terminal.writeln('\x1b[33mAlready connected.\x1b[0m');
-                    return;
-                }
                 const url = document.getElementById('serverUrl').value;
-                const token = document.getElementById('authToken').value;
-                this.connect(url, token);
+                this.connect(url, this.githubToken);
             }
         }
         
@@ -676,94 +796,35 @@
                 showConnectionModal();
             });
 
-            const githubTokenInput = document.getElementById('githubToken');
+            const connectServerButton = document.getElementById('connectServerButton');
             const authenticateButton = document.getElementById('authenticateButton');
-            const listCodespacesButton = document.getElementById('listCodespacesButton');
-            const codespaceSelect = document.getElementById('codespaceSelect');
             const connectCodespaceButton = document.getElementById('connectCodespaceButton');
-            const toggleCodespaceStateButton = document.getElementById('toggleCodespaceStateButton');
-            const showConnectionModalButton = document.getElementById('showConnectionModalButton');
 
-            authenticateButton.addEventListener('click', () => {
-                const token = githubTokenInput.value;
-                if (token) {
-                    terminalClient.authenticate(token);
+            connectServerButton.addEventListener('click', () => {
+                const url = document.getElementById('serverUrl').value;
+                if (connectServerButton.textContent === 'Reconnect') {
+                    terminalClient.reconnect();
                 } else {
-                    alert('Please enter a GitHub Token.');
+                    terminalClient.connect(url);
                 }
             });
 
-            listCodespacesButton.addEventListener('click', () => {
-                terminalClient.listCodespaces();
-            });
-
-            codespaceSelect.addEventListener('change', () => {
-                const codespaceName = codespaceSelect.value;
-                if (codespaceName) {
-                    // When a codespace is selected, update the UI to reflect its potential state
-                    // This assumes we have the state available from a previous list_codespaces call
-                    // For now, we'll just reset the buttons to default connect/start state
-                    terminalClient.currentCodespaceName = codespaceName;
-                    terminalClient.updateCodespaceUI('Shutdown'); // Assume shutdown initially for a newly selected codespace
+            authenticateButton.addEventListener('click', () => {
+                const token = document.getElementById('githubToken').value;
+                if (token) {
+                    terminalClient.authenticate(token);
                 } else {
-                    terminalClient.currentCodespaceName = null;
-                    terminalClient.updateCodespaceUI('Disconnected');
+                    terminalClient.updateInfoBox('Please enter a GitHub Token.', true);
                 }
             });
 
             connectCodespaceButton.addEventListener('click', () => {
-                const codespaceName = codespaceSelect.value;
-                if (!codespaceName) {
-                    alert('Please select a Codespace.');
-                    return;
-                }
-
-                if (terminalClient.currentCodespaceState === 'Connected') {
-                    terminalClient.disconnectFromCodespace();
-                } else {
+                const selectedCodespace = document.querySelector('.codespace-item.selected');
+                if (selectedCodespace) {
+                    const codespaceName = selectedCodespace.dataset.codespaceName;
                     terminalClient.connectToCodespace(codespaceName);
-                }
-            });
-
-            toggleCodespaceStateButton.addEventListener('click', () => {
-                const codespaceName = codespaceSelect.value;
-                if (!codespaceName) {
-                    alert('Please select a Codespace.');
-                    return;
-                }
-
-                if (terminalClient.currentCodespaceState === 'Shutdown') {
-                    terminalClient.startCodespace(codespaceName);
-                } else if (terminalClient.currentCodespaceState === 'Connected') {
-                    terminalClient.stopCodespace(codespaceName);
-                }
-            });
-
-            // Initial UI update
-            terminalClient.updateCodespaceUI('Disconnected');
-
-            const openGeminiButton = document.getElementById('openGeminiButton');
-            openGeminiButton.addEventListener('click', () => {
-                terminalClient.terminal.writeln('npx https://github.com/google-gemini/gemini-cli\r');
-            });
-
-            const repoUrlInput = document.getElementById('repoUrlInput');
-            const connectRepoCodespaceButton = document.getElementById('connectRepoCodespaceButton');
-
-            connectRepoCodespaceButton.addEventListener('click', () => {
-                const repoUrl = repoUrlInput.value;
-                if (!repoUrl) {
-                    alert('Please enter a repository URL.');
-                    return;
-                }
-                if (terminalClient.socket && terminalClient.socket.readyState === WebSocket.OPEN) {
-                    terminalClient.socket.send(JSON.stringify({
-                        type: 'connect_to_repo_codespace',
-                        repo_url: repoUrl
-                    }));
-                    terminalClient.terminal.writeln(`\x1b[34mRequesting codespace for repository: ${repoUrl}...\x1b[0m`);
                 } else {
-                    terminalClient.terminal.writeln('\x1b[31mNot connected to server. Please connect first.\x1b[0m');
+                    terminalClient.updateInfoBox('Please select a codespace.', true);
                 }
             });
 
@@ -772,16 +833,32 @@
                 terminalClient.clear();
             });
 
-            showConnectionModalButton.addEventListener('click', () => {
-                if (terminalClient.isConnected) {
-                    terminalClient.socket.close();
-                } else {
-                    showConnectionModal();
+            document.getElementById('openGeminiButton').addEventListener('click', () => {
+                const geminiApiKey = document.getElementById('geminiApiKey').value;
+                const googleShellSelected = document.querySelector('.shell-type-button[data-shell-type="google"]').classList.contains('selected');
+                let command = 'npx --yes https://github.com/google-gemini/gemini-cli';
+
+                if (googleShellSelected && geminiApiKey) {
+                    command = `export GEMINI_API_KEY=${geminiApiKey} && ${command}`;
                 }
+                terminalClient.terminal.writeln(command);
             });
 
-            document.getElementById('reconnectButton').addEventListener('click', () => {
-                terminalClient.reconnect();
+            // Handle shell type selection
+            const shellTypeButtons = document.querySelectorAll('.shell-type-button');
+            const geminiApiKeyInput = document.getElementById('geminiApiKeyInput');
+
+            shellTypeButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    shellTypeButtons.forEach(btn => btn.classList.remove('selected'));
+                    button.classList.add('selected');
+
+                    if (button.dataset.shellType === 'google') {
+                        geminiApiKeyInput.classList.remove('hidden');
+                    } else {
+                        geminiApiKeyInput.classList.add('hidden');
+                    }
+                });
             });
         });
         
@@ -794,31 +871,21 @@
             document.getElementById('connectionModal').classList.add('hidden');
         }
         
-        function connectToServer() {
-            const url = document.getElementById('serverUrl').value;
-            const token = document.getElementById('authToken').value;
-            
-            if (!url) {
-                alert('Please enter a server URL');
-                return;
-            }
-            
-            terminalClient.connect(url, token);
-            hideConnectionModal();
-        }
-        
-        function clearTerminal() {
-            terminalClient.clear();
-        }
-        
-        function reconnect() {
-            terminalClient.reconnect();
-        }
-        
         // Handle Enter key in modal
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !document.getElementById('connectionModal').classList.contains('hidden')) {
-                connectToServer();
+                // Determine which step is active and trigger the corresponding button
+                const connectServerButton = document.getElementById('connectServerButton');
+                const authenticateButton = document.getElementById('authenticateButton');
+                const connectCodespaceButton = document.getElementById('connectCodespaceButton');
+
+                if (!connectServerButton.disabled) {
+                    connectServerButton.click();
+                } else if (!authenticateButton.disabled) {
+                    authenticateButton.click();
+                } else if (!connectCodespaceButton.disabled) {
+                    connectCodespaceButton.click();
+                }
             }
         });
     </script>
