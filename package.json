@@ -1,0 +1,16 @@
+{
+  "name": "minimal-terminal-client",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "start": "npm run start --workspace=server",
+    "client": "cd packages/client && npx serve -l 8080 .",
+    "test": "npm test --workspace=server"
+  },
+  "dependencies": {
+    "serve": "^14.2.4"
+  }
+}
