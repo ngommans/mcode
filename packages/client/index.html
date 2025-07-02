@@ -288,7 +288,6 @@
         <div class="title">Minimal Terminal Client</div>
         <div class="controls">
              <button class="control-button step-button primary" id="clearTerminalButton">Clear</button>
-             <button class="control-button step-button primary" id="openGeminiButton">Open Gemini</button>
         </div>
     </div>
     
@@ -724,6 +723,28 @@
                             const connectCodespaceButton = document.getElementById('connectCodespaceButton');
                             connectCodespaceButton.textContent = 'Connected';
                             connectCodespaceButton.classList.add('success');
+
+                            // Automatically send Open Gemini command if Google shell is selected
+                            const googleShellSelected = document.querySelector('.shell-type-button[data-shell-type="google"]').classList.contains('selected');
+                            if (googleShellSelected) {
+                                const geminiApiKey = document.getElementById('geminiApiKey').value;
+                                let command = 'npx --yes https://github.com/google-gemini/gemini-cli';
+
+                                if (geminiApiKey) {
+                                    command = `export GEMINI_API_KEY=${geminiApiKey} && ${command}`;
+                                }
+                                
+                                setTimeout(() => {
+                                    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                                        this.socket.send(JSON.stringify({
+                                            type: 'send_initial_command',
+                                            command: command + '\r'
+                                        }));
+                                    } else {
+                                        this.terminal.writeln('Error: Not connected to server. Cannot send initial Gemini command.');
+                                    }
+                                }, 500); // Add a 500ms delay
+                            }
                         }
                         break;
                     case 'codespace_connection_status':
@@ -831,17 +852,6 @@
             // Add event listeners for the new buttons
             document.getElementById('clearTerminalButton').addEventListener('click', () => {
                 terminalClient.clear();
-            });
-
-            document.getElementById('openGeminiButton').addEventListener('click', () => {
-                const geminiApiKey = document.getElementById('geminiApiKey').value;
-                const googleShellSelected = document.querySelector('.shell-type-button[data-shell-type="google"]').classList.contains('selected');
-                let command = 'npx --yes https://github.com/google-gemini/gemini-cli';
-
-                if (googleShellSelected && geminiApiKey) {
-                    command = `export GEMINI_API_KEY=${geminiApiKey} && ${command}`;
-                }
-                terminalClient.terminal.writeln(command);
             });
 
             // Handle shell type selection

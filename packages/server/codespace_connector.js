@@ -525,6 +525,13 @@ class CodespaceTerminalServer {
                     ws.terminalConnection.write(message.data);
                 }
                 break;
+
+            case 'send_initial_command':
+                console.log(`[DEBUG] Received initial command: ${JSON.stringify(message.command)}`);
+                if (ws.terminalConnection) {
+                    ws.terminalConnection.write(message.command);
+                }
+                break;
                 
             case 'resize':
                 if (ws.terminalConnection && ws.terminalConnection.resize) {
