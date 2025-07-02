@@ -42,6 +42,10 @@ class GitHubCodespaceConnector {
                 
                 res.on('end', () => {
                     console.log(`[DEBUG] Response Status: ${res.statusCode}`);
+                    if (res.statusCode === 401) {
+                        reject(new Error('Bad credentials'));
+                        return;
+                    }
                     try {
                         const result = JSON.parse(data);
                         console.log(`[DEBUG] Response Data: ${JSON.stringify(result)}`);
@@ -182,11 +186,12 @@ class GitHubCodespaceConnector {
                 (error) => { 
                     console.error('[SSH Terminal Error]', error);
                     if (ws && ws.readyState === WebSocket.OPEN) {
-                        ws.send(JSON.stringify({ type: 'error', message: error }));
+                        this.server.sendError(ws, error.toString());
+                        this.sendCodespaceState(ws, codespaceName, 'Shutdown');
                     }
                 }
             );
-            this.sendCodespaceState(ws, codespaceName, 'Connected');
+            this.sendCodespaceState(ws, codespaceName, 'Connected', codespace.repository.full_name);
             return terminalConnection;
             
         } catch (error) {
@@ -294,12 +299,13 @@ class GitHubCodespaceConnector {
         });
     }
 
-    sendCodespaceState(ws, codespaceName, state) {
+    sendCodespaceState(ws, codespaceName, state, repositoryFullName = null) {
         if (this.server && this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.server.sendMessage(this.ws, {
                 type: 'codespace_state',
                 codespace_name: codespaceName,
-                state: state
+                state: state,
+                repository_full_name: repositoryFullName
             });
         }
     }

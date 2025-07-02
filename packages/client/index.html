@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Minimal Terminal Client</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    <link href="https://cdn.jsdelivr.net/npm/@vscode/codicons@0.0.36/dist/codicon.css" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -189,6 +190,25 @@
         .hidden {
             display: none;
         }
+
+        .statusbar-item {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            height: 22px;
+            line-height: 22px;
+            cursor: default;
+            color: #fff;
+            padding: 0 8px;
+            white-space: nowrap;
+            -webkit-user-select: none;
+            user-select: none;
+            background-color: #007acc;
+        }
+        .statusbar-item-label {
+            color: #fff;
+            text-decoration: none;
+        }
     </style>
 </head>
 <body>
@@ -238,6 +258,13 @@
         </div>
     </div>
 
+    <div class="statusbar-item left remote-kind has-background-color first-visible-item" id="remote-status">
+        <a class="statusbar-item-label" role="button">
+            <span class="codicon codicon-remote"></span>
+            <span id="remote-status-text">Open Remote</span>
+        </a>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
     <script>
@@ -251,8 +278,34 @@
                 this.maxReconnectAttempts = 5;
                 this.currentCodespaceName = null;
                 this.currentCodespaceState = null;
+                this.currentRepositoryFullName = null;
+                this.statusQueue = [];
+                this.isProcessingStatusQueue = false;
                 
                 this.init();
+            }
+
+            processStatusQueue() {
+                if (this.statusQueue.length === 0) {
+                    this.isProcessingStatusQueue = false;
+                    return;
+                }
+
+                this.isProcessingStatusQueue = true;
+                const message = this.statusQueue.shift();
+                const remoteStatusText = document.getElementById('remote-status-text');
+                remoteStatusText.textContent = message;
+
+                setTimeout(() => {
+                    this.processStatusQueue();
+                }, 3000);
+            }
+
+            addStatusMessage(message) {
+                this.statusQueue.push(message);
+                if (!this.isProcessingStatusQueue) {
+                    this.processStatusQueue();
+                }
             }
             
             init() {
@@ -357,7 +410,8 @@
                         // Query codespace status after connecting to server
                         this.socket.send(JSON.stringify({ type: 'query_codespace_status' }));
                         
-                        this.terminal.writeln('\x1b[32m✓ Connected to remote terminal\x1b[0m');
+                        this.terminal.writeln('\x1b[32m\u2713 Connected to remote terminal\x1b[0m');
+                        this.addStatusMessage('Connected to remote terminal');
                     };
                     
                     this.socket.onmessage = (event) => {
@@ -373,7 +427,7 @@
                     this.socket.onclose = () => {
                         this.isConnected = false;
                         this.updateStatus('Disconnected', false);
-                        this.terminal.writeln('\r\n\x1b[31m✗ Connection closed\x1b[0m');
+                        this.terminal.writeln('\r\n\x1b[31m\u2717 Connection closed\x1b[0m');
                         
                         // Auto-reconnect logic
                         if (this.reconnectAttempts < this.maxReconnectAttempts) {
@@ -385,12 +439,12 @@
                     
                     this.socket.onerror = (error) => {
                         this.updateStatus('Connection Error', false);
-                        this.terminal.writeln('\r\n\x1b[31m✗ Connection error\x1b[0m');
+                        this.terminal.writeln('\r\n\x1b[31m\u2717 Connection error\x1b[0m');
                     };
                     
                 } catch (error) {
                     this.updateStatus('Connection Error', false);
-                    this.terminal.writeln('\r\n\x1b[31m✗ Invalid WebSocket URL\x1b[0m');
+                    this.terminal.writeln('\r\n\x1b[31m\u2717 Invalid WebSocket URL\x1b[0m');
                 }
             }
 
@@ -424,6 +478,7 @@
                         codespace_name: codespaceName
                     }));
                     this.terminal.writeln(`\x1b[34mConnecting to codespace: ${codespaceName}...\x1b[0m`);
+                    this.addStatusMessage(`Connecting to codespace: ${codespaceName}...`);
                 } else {
                     this.terminal.writeln('\x1b[31mNot connected to server. Please connect first.\x1b[0m');
                 }
@@ -469,11 +524,11 @@
                     case 'output':
                         this.terminal.write(message.data);
                         break;
-                    case 'error':
-                        this.terminal.writeln(`\r\n\x1b[31mError: ${message.message}\x1b[0m`);
-                        break;
+                    case 'error':                        this.terminal.writeln(`
+[31mError: ${message.message}[0m`);                        if (message.message.includes('Terminal session ended')) {                            this.addStatusMessage('Terminal session ended.');                        } else if (message.message === 'Bad credentials') {                            this.addStatusMessage('Error: Bad credentials');                        } else if (message.message === 'Not authenticated') {                            this.addStatusMessage('Connected: Not authenticated');                        }                        break;
                     case 'authenticated':
-                        this.terminal.writeln('\x1b[32m✓ Authenticated successfully\x1b[0m');
+                        this.terminal.writeln('\x1b[32m\u2713 Authenticated successfully\x1b[0m');
+                        this.addStatusMessage('Connected: Authenticated');
                         // Automatically list codespaces after authentication
                         this.listCodespaces();
                         break;
@@ -488,7 +543,8 @@
                                 option.textContent = codespace.name;
                                 codespaceSelect.appendChild(option);
                             });
-                            this.terminal.writeln(`\x1b[32m✓ Found ${codespaces.length} codespace(s).\x1b[0m`);
+                            this.terminal.writeln(`\x1b[32m\u2713 Found ${codespaces.length} codespace(s).\x1b[0m`);
+                            this.addStatusMessage(`Connected: ${codespaces.length} Codespace(s) available`);
                         } else {
                             this.terminal.writeln('\x1b[33mNo codespaces found.\x1b[0m');
                         }
@@ -501,6 +557,7 @@
                     case 'codespace_state':
                         this.currentCodespaceName = message.codespace_name;
                         this.currentCodespaceState = message.state;
+                        this.currentRepositoryFullName = message.repository_full_name;
                         this.terminal.writeln(`\r\n\x1b[32mCodespace '${this.currentCodespaceName}' state: ${this.currentCodespaceState}\x1b[0m`);
                         this.updateCodespaceUI(message.state);
                         break;
@@ -518,13 +575,21 @@
             updateStatus(text, connected) {
                 const indicator = document.getElementById('statusIndicator');
                 const statusText = document.getElementById('statusText');
-                
+                const remoteStatusText = document.getElementById('remote-status-text');
+                const showConnectionModalButton = document.getElementById('showConnectionModalButton');
+
                 statusText.textContent = text;
                 
                 if (connected) {
                     indicator.classList.add('connected');
+                    showConnectionModalButton.textContent = 'Disconnect';
                 } else {
                     indicator.classList.remove('connected');
+                    remoteStatusText.textContent = 'Not Connected';
+                    showConnectionModalButton.textContent = 'Connect';
+                    if (this.reconnectAttempts === 0) {
+                        showConnectionModal();
+                    }
                 }
             }
 
@@ -532,6 +597,8 @@
                 const connectCodespaceButton = document.getElementById('connectCodespaceButton');
                 const toggleCodespaceStateButton = document.getElementById('toggleCodespaceStateButton');
                 const codespaceSelect = document.getElementById('codespaceSelect');
+                const remoteStatus = document.getElementById('remote-status');
+                const remoteStatusText = document.getElementById('remote-status-text');
 
                 if (state === 'Connected') {
                     connectCodespaceButton.textContent = 'Disconnect Codespace';
@@ -540,6 +607,14 @@
                     toggleCodespaceStateButton.textContent = 'Stop Codespace';
                     toggleCodespaceStateButton.disabled = false;
                     codespaceSelect.disabled = true;
+                    remoteStatusText.textContent = `Connected: ${this.currentCodespaceName}`;
+
+                    const codespaceNameParts = this.currentCodespaceName.split('-');
+                    codespaceNameParts.pop(); // Omit the last word
+                    const formattedCodespaceName = codespaceNameParts.join(' ');
+
+                    remoteStatusText.textContent = `Connected: ${formattedCodespaceName}`;
+                    remoteStatus.title = `Editing on '${formattedCodespaceName}' (${this.currentRepositoryFullName})`;
                 } else if (state === 'Shutdown') {
                     connectCodespaceButton.textContent = 'Connect Codespace';
                     connectCodespaceButton.disabled = false;
@@ -547,6 +622,7 @@
                     toggleCodespaceStateButton.textContent = 'Start Codespace';
                     toggleCodespaceStateButton.disabled = false;
                     codespaceSelect.disabled = false;
+                    remoteStatusText.textContent = 'Authenticated';
                 } else if (state === 'Starting') {
                     connectCodespaceButton.textContent = 'Connect Codespace';
                     connectCodespaceButton.disabled = true;
@@ -554,6 +630,7 @@
                     toggleCodespaceStateButton.textContent = 'Starting...';
                     toggleCodespaceStateButton.disabled = true;
                     codespaceSelect.disabled = true;
+                    remoteStatusText.textContent = 'Authenticated';
                 } else if (state === 'Stopping') {
                     connectCodespaceButton.textContent = 'Connect Codespace';
                     connectCodespaceButton.disabled = true;
@@ -561,12 +638,14 @@
                     toggleCodespaceStateButton.textContent = 'Stopping...';
                     toggleCodespaceStateButton.disabled = true;
                     codespaceSelect.disabled = true;
+                    remoteStatusText.textContent = 'Authenticated';
                 } else {
                     // Default or Disconnected state
                     connectCodespaceButton.textContent = 'Connect Codespace';
                     connectCodespaceButton.disabled = false;
                     toggleCodespaceStateButton.style.display = 'none';
                     codespaceSelect.disabled = false;
+                    remoteStatusText.textContent = 'Not Connected';
                 }
             }
             
@@ -575,6 +654,10 @@
             }
             
             reconnect() {
+                if (this.isConnected) {
+                    this.terminal.writeln('\x1b[33mAlready connected.\x1b[0m');
+                    return;
+                }
                 const url = document.getElementById('serverUrl').value;
                 const token = document.getElementById('authToken').value;
                 this.connect(url, token);
@@ -588,12 +671,18 @@
         document.addEventListener('DOMContentLoaded', () => {
             terminalClient = new MinimalTerminalClient();
 
+            const remoteStatus = document.getElementById('remote-status');
+            remoteStatus.addEventListener('click', () => {
+                showConnectionModal();
+            });
+
             const githubTokenInput = document.getElementById('githubToken');
             const authenticateButton = document.getElementById('authenticateButton');
             const listCodespacesButton = document.getElementById('listCodespacesButton');
             const codespaceSelect = document.getElementById('codespaceSelect');
             const connectCodespaceButton = document.getElementById('connectCodespaceButton');
             const toggleCodespaceStateButton = document.getElementById('toggleCodespaceStateButton');
+            const showConnectionModalButton = document.getElementById('showConnectionModalButton');
 
             authenticateButton.addEventListener('click', () => {
                 const token = githubTokenInput.value;
@@ -683,8 +772,12 @@
                 terminalClient.clear();
             });
 
-            document.getElementById('showConnectionModalButton').addEventListener('click', () => {
-                showConnectionModal(); // This is still a global function
+            showConnectionModalButton.addEventListener('click', () => {
+                if (terminalClient.isConnected) {
+                    terminalClient.socket.close();
+                } else {
+                    showConnectionModal();
+                }
             });
 
             document.getElementById('reconnectButton').addEventListener('click', () => {
