@@ -107,7 +107,13 @@ npm run client
     *   Connect and automatically open Gemini/Claude.
 6.  **GitHub PR Comments Integration:** Investigate plugging into GitHub (potentially via an existing Multi-Console Protocol) to create and monitor PR comments, enabling the agent to respond with check-ins/updates. (Need to cross-check if this brings us too close to existing headless agent flows).
 7.  **Voice Commanding/Instructions:** Explore options for voice commanding and instructions to improve the user experience, especially on mobile, to mitigate the challenges of a text-based messaging interface.
-8.  **Remove need for GitHub CLI:** Explore using OAuth directly to ensure the user has the right scopes. Key-based authentication does not allow starting/stopping of codespaces, and we need to explore how to establish the tunnel either over websockets or by establishing the tunnel via server-side code instead of the CLI dependency.
+
+### Alternative Connection (GitHub CLI-less)
+
+This project is exploring an alternative connection method that does not rely on the GitHub CLI (`gh`). This approach uses the `@microsoft/dev-tunnels` libraries to establish a direct tunnel to the codespace. This work is partially complete and has the following limitations:
+
+*   **Port Forwarding:** The logic to dynamically retrieve the forwarded port is not yet complete. The application currently defaults to using port `2222`.
+*   **SSH Keys:** This method requires a private SSH key to be available on the server running the `codespace_node_connector.js` script. The key is expected to be at `~/.ssh/id_ed25519`.
 
 ## Implementation Considerations
 
