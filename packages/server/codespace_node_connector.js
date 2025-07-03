@@ -9,7 +9,7 @@ const os = require('os');
 const path = require('path');
 const { Client } = require('ssh2');
 const fs = require('fs');
-const { forwardSshPortOverTunnel } = require('./codespaceTunnelModule');
+const { forwardSshPortOverTunnel, getPortInformation } = require('./codespaceTunnelModule');
 
 // This class connects to the hardcoded local SSH server using the ssh2 library.
 class Ssh2Connector {
@@ -161,8 +161,12 @@ class GitHubCodespaceConnector {
             }
             
             const tunnelProperties = await this.getTunnelProperties(codespaceName);
-            const { localPort, tunnelClient } = await forwardSshPortOverTunnel(tunnelProperties);
+            const { localPort, tunnelClient, portInfo, endpointInfo, tunnelManagementClient } = await forwardSshPortOverTunnel(tunnelProperties);
             ws.tunnelClient = tunnelClient; // Store the new tunnel client on the ws session.
+            ws.portInfo = portInfo; // Store port information
+            ws.endpointInfo = endpointInfo; // Store endpoint information
+            ws.tunnelManagementClient = tunnelManagementClient; // Store management client for port updates
+            ws.tunnelProperties = tunnelProperties; // Store tunnel properties for later use
 
             console.log(`[INFO] Connecting to local port ${localPort}`);
 
@@ -180,6 +184,10 @@ class GitHubCodespaceConnector {
             );
 
             this.sendCodespaceState(ws, codespaceName, 'Connected', `tunnel -> ${codespaceName}`);
+            
+            // Send initial port information to client
+            this.sendPortUpdate(ws, portInfo);
+            
             return terminalConnection;
 
         } catch (error) {
@@ -198,6 +206,44 @@ class GitHubCodespaceConnector {
                 repository_full_name: repositoryFullName
             });
         }
+    }
+
+    sendPortUpdate(ws, portInfo) {
+        if (this.server && this.ws && this.ws.readyState === WebSocket.OPEN) {
+            const userPortsWithUrls = portInfo.userPorts.map(port => ({
+                portNumber: port.portNumber,
+                protocol: port.protocol,
+                urls: port.portForwardingUris || [],
+                accessControl: port.accessControl,
+                isUserPort: true
+            }));
+
+            this.server.sendMessage(this.ws, {
+                type: 'port_update',
+                portCount: portInfo.userPorts.length,
+                ports: userPortsWithUrls,
+                timestamp: portInfo.timestamp || new Date().toISOString()
+            });
+        }
+    }
+
+    async refreshPortInformation(ws) {
+        if (ws.tunnelManagementClient && ws.tunnelProperties && ws.tunnelClient && ws.tunnelClient.connectedTunnel) {
+            try {
+                const updatedPortInfo = await getPortInformation(
+                    ws.tunnelManagementClient, 
+                    ws.tunnelClient.connectedTunnel, 
+                    ws.tunnelProperties
+                );
+                ws.portInfo = updatedPortInfo;
+                this.sendPortUpdate(ws, updatedPortInfo);
+                return updatedPortInfo;
+            } catch (error) {
+                console.error('Failed to refresh port information:', error);
+                return ws.portInfo || { userPorts: [], managementPorts: [], allPorts: [] };
+            }
+        }
+        return { userPorts: [], managementPorts: [], allPorts: [] };
     }
 }
 
@@ -305,6 +351,20 @@ class CodespaceTerminalServer {
                 if (ws.terminalConnection && ws.terminalConnection.resize) {
                     ws.terminalConnection.resize(message.cols, message.rows);
                 }
+                break;
+
+            case 'get_port_info':
+                if (!ws.connector) return this.sendError(ws, 'Not authenticated.');
+                const portInfo = await ws.connector.refreshPortInformation(ws);
+                this.sendMessage(ws, {
+                    type: 'port_info_response',
+                    portInfo: portInfo
+                });
+                break;
+
+            case 'refresh_ports':
+                if (!ws.connector) return this.sendError(ws, 'Not authenticated.');
+                await ws.connector.refreshPortInformation(ws);
                 break;
 
             default:

@@ -309,6 +309,25 @@ class GitHubCodespaceConnector {
             });
         }
     }
+
+    // Stub port tracking methods - always return 0 ports for the legacy connector
+    sendPortUpdate(ws, portInfo) {
+        if (this.server && this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.server.sendMessage(this.ws, {
+                type: 'port_update',
+                portCount: 0,
+                ports: [],
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
+    async refreshPortInformation(ws) {
+        // Stub implementation - no port forwarding capability in legacy connector
+        const stubPortInfo = { userPorts: [], managementPorts: [], allPorts: [] };
+        this.sendPortUpdate(ws, stubPortInfo);
+        return stubPortInfo;
+    }
     
     /**
      * Build the WebSocket URL for the terminal connection
@@ -594,6 +613,26 @@ class CodespaceTerminalServer {
                     console.error(`[ERROR] Failed to connect to codespace for repo ${repoUrl}:`, error);
                     this.sendError(ws, `Failed to connect to codespace for repository: ${repoUrl}. Error: ${error.message}`);
                 }
+                break;
+
+            case 'get_port_info':
+                if (!ws.connector) {
+                    this.sendError(ws, 'Not authenticated.');
+                    return;
+                }
+                const portInfo = await ws.connector.refreshPortInformation(ws);
+                this.sendMessage(ws, {
+                    type: 'port_info_response',
+                    portInfo: portInfo
+                });
+                break;
+
+            case 'refresh_ports':
+                if (!ws.connector) {
+                    this.sendError(ws, 'Not authenticated.');
+                    return;
+                }
+                await ws.connector.refreshPortInformation(ws);
                 break;
                 
             default:

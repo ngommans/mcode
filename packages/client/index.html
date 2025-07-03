@@ -281,6 +281,109 @@
             display: flex;
             flex-direction: row;
         }
+
+        .port-dialog {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            width: 500px;
+            max-height: 400px;
+            z-index: 2000;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .port-dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1999;
+        }
+
+        .port-dialog h3 {
+            color: #fff;
+            margin: 0 0 16px 0;
+            font-size: 16px;
+        }
+
+        .port-list {
+            max-height: 250px;
+            overflow-y: auto;
+            margin-bottom: 16px;
+        }
+
+        .port-item {
+            background: #2d2d2d;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+
+        .port-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .port-number {
+            font-weight: bold;
+            color: #007acc;
+        }
+
+        .port-protocol {
+            background: #444;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            color: #ccc;
+        }
+
+        .port-urls {
+            margin-top: 8px;
+        }
+
+        .port-url {
+            color: #007acc;
+            text-decoration: none;
+            display: block;
+            margin-bottom: 4px;
+            word-break: break-all;
+        }
+
+        .port-url:hover {
+            text-decoration: underline;
+        }
+
+        .no-ports-message {
+            color: #888;
+            text-align: center;
+            padding: 20px;
+            font-style: italic;
+        }
+
+        .dialog-close-button {
+            background: #007acc;
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            float: right;
+        }
+
+        .dialog-close-button:hover {
+            background: #005a9e;
+        }
     </style>
 </head>
 <body>
@@ -346,12 +449,22 @@
             </a>
         </div>
 
-        <div class="statusbar-item light-grey" id="status.forwardedPorts" aria-label="No Ports Forwarded" custom-hover="true">
+        <div class="statusbar-item light-grey" id="status.forwardedPorts" aria-label="No Ports Forwarded" custom-hover="true" style="cursor: pointer;">
             <a class="statusbar-item-label" role="button" tabindex="-1" aria-label="No Ports Forwarded">
                 <span class="codicon codicon-radio-tower"></span>
                 <span id="forwarded-ports-count">0</span>
             </a>
         </div>
+    </div>
+
+    <!-- Port Information Dialog -->
+    <div id="portDialogOverlay" class="port-dialog-overlay hidden" onclick="hidePortDialog()"></div>
+    <div id="portDialog" class="port-dialog hidden">
+        <h3>Forwarded Ports</h3>
+        <div id="portList" class="port-list">
+            <div class="no-ports-message">No ports are currently forwarded.</div>
+        </div>
+        <button class="dialog-close-button" onclick="hidePortDialog()">Close</button>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
@@ -372,6 +485,7 @@
                 this.githubToken = null;
                 this.statusQueue = [];
                 this.isProcessingStatusQueue = false;
+                this.portInfo = { ports: [], portCount: 0 };
                 
                 this.init();
             }
@@ -752,6 +866,30 @@
                         this.currentCodespaceState = message.state;
                         this.updateCodespaceUI(message.state);
                         break;
+                    case 'port_update':
+                        this.portInfo = {
+                            ports: message.ports || [],
+                            portCount: message.portCount || 0,
+                            timestamp: message.timestamp
+                        };
+                        this.updatePortCount(message.portCount || 0);
+                        // Update port dialog if it's open
+                        if (!document.getElementById('portDialog').classList.contains('hidden')) {
+                            updatePortDialog();
+                        }
+                        break;
+                    case 'port_info_response':
+                        this.portInfo = {
+                            ports: message.portInfo.userPorts || [],
+                            portCount: message.portInfo.userPorts ? message.portInfo.userPorts.length : 0,
+                            timestamp: message.portInfo.timestamp
+                        };
+                        this.updatePortCount(this.portInfo.portCount);
+                        // Update port dialog if it's open
+                        if (!document.getElementById('portDialog').classList.contains('hidden')) {
+                            updatePortDialog();
+                        }
+                        break;
                     default:
                         console.log('Unknown message type:', message);
                 }
@@ -799,6 +937,35 @@
                 this.terminal.clear();
             }
 
+            updatePortCount(count) {
+                const forwardedPortsCount = document.getElementById('forwarded-ports-count');
+                const forwardedPortsStatus = document.getElementById('status.forwardedPorts');
+                
+                forwardedPortsCount.textContent = count;
+                
+                if (count === 0) {
+                    forwardedPortsStatus.setAttribute('aria-label', 'No Ports Forwarded');
+                } else {
+                    forwardedPortsStatus.setAttribute('aria-label', `${count} Port${count > 1 ? 's' : ''} Forwarded`);
+                }
+            }
+
+            requestPortInfo() {
+                if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                    this.socket.send(JSON.stringify({
+                        type: 'get_port_info'
+                    }));
+                }
+            }
+
+            refreshPorts() {
+                if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                    this.socket.send(JSON.stringify({
+                        type: 'refresh_ports'
+                    }));
+                }
+            }
+
             reconnect() {
                 const url = document.getElementById('serverUrl').value;
                 this.connect(url, this.githubToken);
@@ -815,6 +982,11 @@
             const remoteStatus = document.getElementById('remote-status');
             remoteStatus.addEventListener('click', () => {
                 showConnectionModal();
+            });
+
+            const forwardedPortsStatus = document.getElementById('status.forwardedPorts');
+            forwardedPortsStatus.addEventListener('click', () => {
+                showPortDialog();
             });
 
             const connectServerButton = document.getElementById('connectServerButton');
@@ -879,6 +1051,60 @@
         
         function hideConnectionModal() {
             document.getElementById('connectionModal').classList.add('hidden');
+        }
+
+        // Port dialog functions
+        function showPortDialog() {
+            // Request fresh port information
+            terminalClient.requestPortInfo();
+            
+            // Update the dialog with current port information
+            updatePortDialog();
+            
+            document.getElementById('portDialogOverlay').classList.remove('hidden');
+            document.getElementById('portDialog').classList.remove('hidden');
+        }
+        
+        function hidePortDialog() {
+            document.getElementById('portDialogOverlay').classList.add('hidden');
+            document.getElementById('portDialog').classList.add('hidden');
+        }
+
+        function updatePortDialog() {
+            const portList = document.getElementById('portList');
+            const ports = terminalClient.portInfo.ports || [];
+
+            if (ports.length === 0) {
+                portList.innerHTML = '<div class="no-ports-message">No ports are currently forwarded.</div>';
+                return;
+            }
+
+            let html = '';
+            ports.forEach(port => {
+                html += `
+                    <div class="port-item">
+                        <div class="port-item-header">
+                            <span class="port-number">Port ${port.portNumber}</span>
+                            <span class="port-protocol">${port.protocol.toUpperCase()}</span>
+                        </div>
+                        <div class="port-urls">
+                `;
+                
+                if (port.urls && port.urls.length > 0) {
+                    port.urls.forEach(url => {
+                        html += `<a href="${url}" target="_blank" class="port-url">${url}</a>`;
+                    });
+                } else {
+                    html += '<span style="color: #888; font-style: italic;">No public URLs available</span>';
+                }
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+
+            portList.innerHTML = html;
         }
         
         // Handle Enter key in modal

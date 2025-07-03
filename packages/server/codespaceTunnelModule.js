@@ -107,7 +107,8 @@ async function forwardSshPortOverTunnel(tunnelProperties) {
         accessToken: tunnelProperties.connectAccessToken,
     };
 
-    let client; // Declare client here
+    let client;
+    let portInfo = { userPorts: [], managementPorts: [], allPorts: [] };
 
     try {
         console.log('Fetching full tunnel object for port forwarding...');
@@ -120,10 +121,23 @@ async function forwardSshPortOverTunnel(tunnelProperties) {
 
         const sshPort = 22;
 
+        // Get all existing ports and categorize them
         const existingPorts = await tunnelManagementClient.listTunnelPorts(tunnel, {
             tokenScopes: [TunnelAccessScopes.ManagePorts],
             accessToken: tunnelProperties.managePortsAccessToken,
         });
+        
+        // Categorize ports
+        portInfo.allPorts = existingPorts;
+        portInfo.userPorts = existingPorts.filter(port => 
+            port.labels && port.labels.includes('UserForwardedPort')
+        );
+        portInfo.managementPorts = existingPorts.filter(port => 
+            port.labels && port.labels.includes('InternalPort')
+        );
+
+        console.log(`Found ${portInfo.userPorts.length} user ports, ${portInfo.managementPorts.length} management ports`);
+
         const port22Exists = existingPorts.find(p => p.portNumber === sshPort);
 
         if (!port22Exists) {
@@ -139,7 +153,7 @@ async function forwardSshPortOverTunnel(tunnelProperties) {
             console.log(`Tunnel port ${sshPort} already exists.`);
         }
 
-        client = new TunnelRelayTunnelClient(); // Assign client here
+        client = new TunnelRelayTunnelClient();
         client.trace = (level, eventId, msg, err) => {
             console.log(`Tunnel Client Trace: ${msg}`);
             if (err) console.error(err);
@@ -155,24 +169,52 @@ async function forwardSshPortOverTunnel(tunnelProperties) {
         await client.connect(updatedTunnel);
         console.log('Tunnel client connected for port forwarding.');
 
-		//TODO: WARNING - HARDCODED
-		return { localPort:2222, tunnelClient:client };
-		/*
-		//TODO: The code in this block is not behaving - starting with client.tunnelSession being null
-        if (!client.tunnelSession) {
-            throw new Error('Failed to establish a tunnel session.');
+        // Extract port information from connected client
+        let extractedLocalPort = 2222; // Default fallback
+        
+        if (client.tunnelSession) {
+            try {
+                console.log('Attempting to forward port via tunnel session...');
+                const forwarded = await client.tunnelSession.forwardPort({ remotePort: sshPort });
+                extractedLocalPort = forwarded.localPort;
+                console.log(`Port forwarded: remote ${sshPort} -> local ${extractedLocalPort}`);
+            } catch (forwardError) {
+                console.log('Port forwarding via session failed, using default port:', forwardError.message);
+            }
         }
 
-        console.log('Forwarding port...');
-        const forwarded = await client.tunnelSession.forwardPort({ remotePort: sshPort });
-        const localPort = forwarded.localPort;
+        // Get endpoint information for URL construction
+        const endpoints = client.endpoints || [];
+        const endpointInfo = endpoints.length > 0 ? {
+            portUriFormat: endpoints[0].portUriFormat,
+            portSshCommandFormat: endpoints[0].portSshCommandFormat,
+            tunnelUri: endpoints[0].tunnelUri
+        } : null;
+
+        // Update port info with fresh data after connection
+        const refreshedPorts = await tunnelManagementClient.listTunnelPorts(updatedTunnel, {
+            tokenScopes: [TunnelAccessScopes.ManagePorts],
+            accessToken: tunnelProperties.managePortsAccessToken,
+        });
         
-        console.log(`Port forwarded: remote ${sshPort} -> local ${localPort}`);
-        return { localPort, tunnelClient: client };
-		*/
+        portInfo.allPorts = refreshedPorts;
+        portInfo.userPorts = refreshedPorts.filter(port => 
+            port.labels && port.labels.includes('UserForwardedPort')
+        );
+        portInfo.managementPorts = refreshedPorts.filter(port => 
+            port.labels && port.labels.includes('InternalPort')
+        );
+
+        return { 
+            localPort: extractedLocalPort, 
+            tunnelClient: client, 
+            portInfo: portInfo,
+            endpointInfo: endpointInfo,
+            tunnelManagementClient: tunnelManagementClient
+        };
+
     } catch (err) {
         console.error('Failed to forward port over tunnel:', err);
-        // If the client was created, ensure it's closed on failure.
         if (client) {
             client.dispose();
         }
@@ -181,7 +223,33 @@ async function forwardSshPortOverTunnel(tunnelProperties) {
 }
 
 
+async function getPortInformation(tunnelManagementClient, tunnel, tunnelProperties) {
+    try {
+        const existingPorts = await tunnelManagementClient.listTunnelPorts(tunnel, {
+            tokenScopes: [TunnelAccessScopes.ManagePorts],
+            accessToken: tunnelProperties.managePortsAccessToken,
+        });
+        
+        const portInfo = {
+            allPorts: existingPorts,
+            userPorts: existingPorts.filter(port => 
+                port.labels && port.labels.includes('UserForwardedPort')
+            ),
+            managementPorts: existingPorts.filter(port => 
+                port.labels && port.labels.includes('InternalPort')
+            ),
+            timestamp: new Date().toISOString()
+        };
+
+        return portInfo;
+    } catch (error) {
+        console.error('Failed to get port information:', error);
+        return { allPorts: [], userPorts: [], managementPorts: [], error: error.message };
+    }
+}
+
 module.exports = { 
     createSshStreamOverTunnel,
-    forwardSshPortOverTunnel
+    forwardSshPortOverTunnel,
+    getPortInformation
 };
