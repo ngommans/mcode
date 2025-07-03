@@ -1,0 +1,32 @@
+{
+  "name": "@minimal-terminal-client/shared",
+  "version": "1.0.0",
+  "description": "Shared types and utilities for minimal terminal client",
+  "type": "module",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js",
+      "require": "./dist/src/index.js",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:prod": "tsc --project tsconfig.json",
+    "dev": "tsc --watch",
+    "clean": "rimraf dist",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix"
+  },
+  "devDependencies": {
+    "rimraf": "^5.0.10"
+  },
+  "files": [
+    "dist",
+    "src"
+  ]
+}

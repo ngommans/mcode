@@ -1,0 +1,50 @@
+{
+  "name": "@minimal-terminal-client/node-server",
+  "version": "1.0.0",
+  "description": "Node.js server with tunnel management for minimal terminal client",
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "build:prod": "tsc --project tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "clean": "rimraf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:watch": "jest --watch",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix"
+  },
+  "dependencies": {
+    "@microsoft/dev-tunnels-connections": "^1.2.1",
+    "@microsoft/dev-tunnels-management": "^1.2.1",
+    "@microsoft/dev-tunnels-contracts": "^1.2.1",
+    "asynckit": "^0.4.0",
+    "bcrypt-pbkdf": "^1.0.2",
+    "combined-stream": "^1.0.8",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "node-pty": "^1.0.0",
+    "ssh2": "^1.16.0",
+    "typedarray-to-buffer": "^4.0.0",
+    "vscode-jsonrpc": "^8.2.1",
+    "websocket": "^1.0.35",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.23",
+    "@types/jest": "^29.5.14",
+    "@types/ssh2": "^1.15.5",
+    "@types/ws": "^8.18.1",
+    "jest": "^29.7.0",
+    "nodemon": "^3.1.10",
+    "rimraf": "^5.0.10",
+    "ts-jest": "^29.4.0",
+    "tsx": "^4.20.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "upgrade": true,
+  "deep": true,
+  "format": ["group", "repo"],
+  "target": "latest",
+  "reject": [
+    "@microsoft/dev-tunnels-connections",
+    "@microsoft/dev-tunnels-management", 
+    "@microsoft/dev-tunnels-contracts"
+  ],
+  "target": "minor",
+  "interactive": false,
+  "doctor": false,
+  "doctorInstall": "npm ci",
+  "doctorTest": "npm test"
+}

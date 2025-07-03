@@ -3,3 +3,13 @@
 
 # Environment variables
 .env
+
+apps/node-server/node_modules
+apps/web-client/node_modules
+packages/server/node_modules
+packages/tunnel-client/node_modules
+apps/node-server/dist
+apps/web-client/dist
+packages/server/dist
+packages/tunnel-client/dist
+packages/shared/dist

@@ -1,0 +1,35 @@
+{
+  "name": "@minimal-terminal-client/tunnel-client",
+  "version": "1.0.0",
+  "description": "Tunnel client for Microsoft Dev Tunnels integration",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:prod": "tsc --project tsconfig.json",
+    "dev": "tsc --watch",
+    "clean": "rimraf dist",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix"
+  },
+  "dependencies": {
+    "@microsoft/dev-tunnels-connections": "^1.2.1",
+    "@microsoft/dev-tunnels-management": "^1.2.1",
+    "@microsoft/dev-tunnels-contracts": "^1.2.1"
+  },
+  "devDependencies": {
+    "rimraf": "^5.0.10"
+  },
+  "files": [
+    "dist",
+    "src"
+  ]
+}

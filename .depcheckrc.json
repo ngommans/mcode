@@ -1,0 +1,56 @@
+{
+  "ignores": [
+    "@types/*",
+    "rimraf",
+    "typescript",
+    "eslint",
+    "prettier",
+    "husky",
+    "lint-staged",
+    "concurrently",
+    "npm-check-updates",
+    "depcheck",
+    "audit-ci",
+    "syncpack",
+    "asynckit",
+    "bcrypt-pbkdf",
+    "combined-stream",
+    "typedarray-to-buffer",
+    "vscode-jsonrpc",
+    "websocket"
+  ],
+  "ignore-bin-package": false,
+  "skip-missing": false,
+  "ignore-dirs": [
+    "dist",
+    "build",
+    "coverage",
+    "node_modules",
+    ".git"
+  ],
+  "ignore-patterns": [
+    "*.d.ts",
+    "*.test.ts",
+    "*.spec.ts"
+  ],
+  "parsers": {
+    "*.ts": "typescript",
+    "*.tsx": "typescript",
+    "*.js": "es6",
+    "*.jsx": "jsx"
+  },
+  "detectors": [
+    "requireCallExpression",
+    "importDeclaration",
+    "importCallExpression",
+    "exportDeclaration"
+  ],
+  "specials": [
+    "eslint",
+    "prettier",
+    "typescript",
+    "jest",
+    "husky",
+    "lint-staged"
+  ]
+}

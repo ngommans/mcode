@@ -1,16 +1,66 @@
 {
-  "name": "minimal-terminal-client",
+  "name": "mcode",
   "version": "1.0.0",
+  "description": "Minimal terminal client for VS Code Codespaces with TypeScript, PWA, and testing",
   "private": true,
+  "type": "module",
   "workspaces": [
+    "apps/*",
     "packages/*"
   ],
   "scripts": {
-    "start": "npm run start --workspace=server",
-    "client": "cd packages/client && npx serve -l 8080 .",
-    "test": "npm test --workspace=server"
+    "build": "npm run build --workspaces --if-present",
+    "build:prod": "npm run build:prod --workspaces --if-present",
+    "dev": "concurrently \"npm run dev --workspace=apps/web-client\" \"npm run dev --workspace=apps/node-server\"",
+    "dev-web:debug": "npm run dev --workspace=apps/web-client -- --debug",
+    "start": "npm run start --workspace=apps/node-server",
+    "start:console": "npm run start --workspace=apps/console-server",
+    "test": "npm run test --workspaces --if-present",
+    "test:coverage": "npm run test:coverage --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "lint:fix": "npm run lint:fix --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "clean": "npm run clean --workspaces --if-present && rimraf node_modules",
+    "deps:audit": "npm audit"
   },
-  "dependencies": {
-    "serve": "^14.2.4"
+  "devDependencies": {
+    "@types/node": "^20.19.4",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "concurrently": "^8.2.2",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.5.1",
+    "husky": "^8.0.3",
+    "lint-staged": "^15.5.2",
+    "prettier": "^3.6.2",
+    "rimraf": "^5.0.10",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ngommans/mcode.git"
+  },
+  "keywords": [
+    "codespace",
+    "terminal",
+    "typescript",
+    "pwa",
+    "github"
+  ],
+  "author": "Nick Gommans",
+  "license": "MIT",
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
   }
 }

@@ -1,0 +1,39 @@
+{
+  "versionGroups": [
+    {
+      "label": "Use workspace protocol for local packages",
+      "dependencies": ["@minimal-terminal-client/*"],
+      "dependencyTypes": ["dev", "peer", "prod"],
+      "pinVersion": "workspace:*"
+    },
+    {
+      "label": "Standardize TypeScript version",
+      "dependencies": ["typescript"],
+      "dependencyTypes": ["dev"],
+      "pinVersion": "^5.3.3"
+    },
+    {
+      "label": "Standardize ESLint ecosystem",
+      "dependencies": ["eslint", "@typescript-eslint/*"],
+      "dependencyTypes": ["dev"]
+    },
+    {
+      "label": "Standardize testing ecosystem", 
+      "dependencies": ["jest", "@types/jest", "ts-jest"],
+      "dependencyTypes": ["dev"]
+    },
+    {
+      "label": "Standardize Microsoft Dev Tunnels",
+      "dependencies": ["@microsoft/dev-tunnels-*"],
+      "dependencyTypes": ["prod", "dev"]
+    }
+  ],
+  "semverGroups": [
+    {
+      "label": "Pin exact versions for build tools",
+      "dependencies": ["typescript", "prettier", "eslint"],
+      "dependencyTypes": ["dev"],
+      "range": ""
+    }
+  ]
+}

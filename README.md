@@ -218,6 +218,205 @@ This script provides detailed inspection of all available port extraction method
 3. **Real-time Updates**: Port count updates automatically as services start/stop
 4. **Manual Refresh**: Use the refresh functionality to update port information
 
+## Migration Plan: Modernization to TypeScript PWA
+
+### **🗺️ Six-Stage Modernization Roadmap**
+
+This section outlines our comprehensive plan to transform the minimal terminal client from a JavaScript prototype into a professional TypeScript PWA with proper testing, CI/CD, and architectural best practices.
+
+#### **🎯 Stage 1: Project Structure & TypeScript Foundation** ✅ **COMPLETED**
+**Goal:** Establish proper project architecture and TypeScript base
+
+**Completed Tasks:**
+- [x] Create monorepo structure with proper separation of concerns (`apps/`, `packages/`)
+- [x] Set up root-level package.json with workspaces
+- [x] Install TypeScript and configure tsconfig.json hierarchy
+- [x] Create shared type definitions for WebSocket messages, port info, tunnel types
+- [x] Set up ESLint, Prettier, and build configurations
+- [x] Convert server architecture to TypeScript (placeholder implementations)
+- [x] Create Vite-based web client with PWA configuration
+
+**Structure Created:**
+```
+minimal-terminal-client/
+├── apps/
+│   ├── web-client/              # PWA client app (Vite + TypeScript)
+│   ├── node-server/             # Pure Node.js server (TypeScript)
+│   └── console-server/          # Console app server (TypeScript)
+├── packages/
+│   ├── shared/                  # Shared types and utilities
+│   ├── tunnel-client/           # Tunnel management
+│   ├── codespace-api/           # GitHub API wrapper
+│   └── ui-components/           # Reusable UI components
+├── tools/build/                 # Build scripts and utilities
+├── .github/workflows/           # CI/CD configuration
+└── package.json                 # Root workspace config
+```
+
+---
+
+#### **🎯 Stage 2: Testing Infrastructure** 🔄 **NEXT**
+**Goal:** Achieve 80%+ test coverage with comprehensive testing
+
+**Tasks:**
+- [ ] Install Jest, Testing Library, Playwright for E2E
+- [ ] Configure test environments for each workspace
+- [ ] Set up code coverage reporting with thresholds
+- [ ] Create test utilities and mocks for tunnel/GitHub APIs
+- [ ] Write unit tests for tunnel management functions
+- [ ] Write integration tests for WebSocket communication
+- [ ] Write component tests for UI elements
+- [ ] Write E2E tests for complete user flows
+- [ ] Set up visual regression testing
+
+**Deliverable:** 80%+ test coverage with automated test suite
+
+---
+
+#### **🎯 Stage 3: Progressive Web App Implementation** 🔄 **PENDING**
+**Goal:** Transform into installable PWA with offline capabilities
+
+**Tasks:**
+- [ ] Complete Web App Manifest configuration
+- [ ] Implement Service Worker for caching strategies
+- [ ] Add offline fallback pages and error handling
+- [ ] Enable "Add to Home Screen" functionality
+- [ ] Implement CSS Custom Properties for theming
+- [ ] Add CSS Grid/Flexbox responsive layouts
+- [ ] Optimize bundle splitting and lazy loading
+- [ ] Implement Web Vitals optimization
+- [ ] Add progressive loading strategies
+
+**Deliverable:** Installable PWA with excellent performance scores
+
+---
+
+#### **🎯 Stage 4: Backend Architecture Refinement** 🔄 **PENDING**
+**Goal:** Clean, testable backend services with proper separation
+
+**Tasks:**
+- [ ] Complete tunnel management service conversion from JS
+- [ ] Implement proper GitHub API wrapper with error handling
+- [ ] Create WebSocket message router with validation
+- [ ] Add structured logging and monitoring
+- [ ] Implement environment-based configuration
+- [ ] Add secure secret management
+- [ ] Create RESTful endpoints for configuration
+- [ ] Implement rate limiting and security measures
+
+**Deliverable:** Clean, documented, testable backend services
+
+---
+
+#### **🎯 Stage 5: CI/CD & Publishing** 🔄 **PENDING**
+**Goal:** Automated build, test, and deployment pipeline
+
+**Tasks:**
+- [ ] Create GitHub Actions for build and test workflow
+- [ ] Set up code coverage reporting and quality gates
+- [ ] Add security scanning and dependency vulnerability checks
+- [ ] Configure GitHub Packages publishing
+- [ ] Implement version management and automated tagging
+- [ ] Set up automated deployment to GitHub Pages
+- [ ] Create container builds for server components
+- [ ] Implement environment promotion workflow
+
+**Deliverable:** Fully automated CI/CD with GitHub Packages publishing
+
+---
+
+#### **🎯 Stage 6: Documentation & Quality** 🔄 **PENDING**
+**Goal:** Professional documentation and code quality standards
+
+**Tasks:**
+- [ ] Add comprehensive JSDoc/TSDoc for all functions
+- [ ] Generate API documentation automatically
+- [ ] Create architecture decision records (ADRs)
+- [ ] Write code examples and tutorials
+- [ ] Set up pre-commit hooks with Husky
+- [ ] Implement SonarQube or similar code quality tools
+- [ ] Create comprehensive README with quick start
+- [ ] Write contributing guidelines and troubleshooting guide
+
+**Deliverable:** Professional-grade documentation and code quality
+
+---
+
+### **🚧 Current Status: Stage 1 Complete**
+
+**What's Working:**
+- ✅ Monorepo structure with proper TypeScript configuration
+- ✅ Shared type definitions for all WebSocket messages and tunnel operations
+- ✅ Basic server architecture converted to TypeScript
+- ✅ Vite-based web client with PWA manifest
+- ✅ Build system and development scripts configured
+
+**What Needs Completion:**
+- 🔄 Convert existing JavaScript tunnel modules to TypeScript
+- 🔄 Complete web client implementation from HTML/JS original
+- 🔄 Test the build and development workflows
+- 🔄 Set up dependency installation and workspace linking
+
+**Dependency Management Added:** ✅
+- Integrated `npm-check-updates` for version updates
+- Added `syncpack` for workspace version consistency
+- Configured `depcheck` for unused dependency detection
+- Set up `audit-ci` for security vulnerability scanning
+- Created comprehensive dependency management workflow
+
+**Available Commands:**
+```bash
+npm run deps:check              # Check for updates
+npm run deps:update-interactive # Interactive updates
+npm run deps:sync              # Sync workspace versions
+npm run deps:unused            # Find unused deps
+npm run deps:audit             # Security audit
+npm run deps:all               # Run all checks
+```
+
+**Next Session Priority:** Complete Stage 1 testing and move to Stage 2 (Testing Infrastructure)
+
+---
+
+## 🚨 Critical Dependencies for Microsoft Dev Tunnels
+
+**IMPORTANT:** The TypeScript node-server requires specific dependencies that are NOT automatically installed by the Microsoft Dev Tunnels packages. These are peer dependencies that must be manually added to prevent runtime errors:
+
+### Required Dependencies
+```json
+{
+  "asynckit": "^0.4.0",
+  "bcrypt-pbkdf": "^1.0.2",
+  "combined-stream": "^1.0.8",
+  "typedarray-to-buffer": "^4.0.0", 
+  "vscode-jsonrpc": "^8.2.1",
+  "websocket": "^1.0.35"
+}
+```
+
+### Why These Are Needed
+- **`asynckit`**: Async utilities for form-data processing in HTTP requests
+- **`bcrypt-pbkdf`**: Required by SSH2 for SSH key cryptographic operations
+- **`combined-stream`**: Used by form-data in axios for HTTP requests in tunnel management
+- **`typedarray-to-buffer`**: Used by WebSocket implementation in dev-tunnels-connections
+- **`vscode-jsonrpc`**: JSON-RPC protocol support for SSH session configuration
+- **`websocket`**: Alternative WebSocket implementation used by tunnel helpers
+
+### Error Symptoms
+If these dependencies are missing, you'll see errors like:
+```
+Error: Cannot find module 'asynckit'
+Error: Cannot find module 'bcrypt-pbkdf'
+Error: Cannot find module 'combined-stream'
+Error: Cannot find module 'typedarray-to-buffer' 
+Error: Cannot find module 'vscode-jsonrpc'
+```
+
+### ⚠️ DO NOT REMOVE
+These dependencies may appear "unused" to dependency checkers because they're loaded dynamically by the Microsoft packages. They are **essential** for tunnel functionality and should be excluded from any automated cleanup tools.
+
+---
+
 ## Next Steps & TODO Items
 
 ### 🔧 **High Priority Technical Tasks**
