@@ -55,18 +55,28 @@ export interface TunnelPort {
 }
 
 export interface PortInfo {
-  userPorts: TunnelPort[];
-  managementPorts: TunnelPort[];
-  allPorts: TunnelPort[];
+  userPorts: any[]; // Allow flexible port types
+  managementPorts: any[];
+  allPorts: any[];
   timestamp?: string;
+  error?: string; // Add error field for compatibility
 }
 
+// Alias for backwards compatibility
+export interface PortInformation extends PortInfo {}
+
 export interface TunnelConnectionResult {
-  localPort: number;
-  tunnelClient: any; // TunnelRelayTunnelClient - avoid importing external types
+  success: boolean;
+  localPort?: number;
+  sshPort?: number;
+  client?: any; // TunnelRelayTunnelClient - avoid importing external types
+  tunnelClient?: any; // Backwards compatibility
   portInfo: PortInfo;
-  endpointInfo: EndpointInfo | null;
-  tunnelManagementClient: any; // TunnelManagementHttpClient
+  endpointInfo?: EndpointInfo | null;
+  tunnelManagementClient?: any; // TunnelManagementHttpClient
+  rpcConnection?: any; // CodespaceRPCInvoker
+  error?: string;
+  cleanup: () => void;
 }
 
 export interface SSHConfig {

@@ -12,11 +12,20 @@ config();
 const DEFAULT_PORT = 3002;
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : DEFAULT_PORT;
 
+// Parse command line arguments for debug mode
+const isDebugMode = process.argv.includes('--debug') || process.env.DEBUG_TRACE === 'true';
+
 async function main(): Promise<void> {
   try {
     logger.info('Starting Codespace Terminal Server...');
     
-    const server = new CodespaceTerminalServer(port);
+    if (isDebugMode) {
+      logger.info('Debug mode enabled - trace logging will be active');
+    } else {
+      logger.info('Debug mode disabled - use --debug flag to enable trace logging');
+    }
+    
+    const server = new CodespaceTerminalServer(port, { debugMode: isDebugMode });
     
     // Graceful shutdown
     process.on('SIGINT', () => {

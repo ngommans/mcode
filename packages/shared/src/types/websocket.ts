@@ -126,7 +126,7 @@ export interface PortUpdateMessage extends BaseMessage {
 
 export interface PortInfoResponseMessage extends BaseMessage {
   type: 'port_info_response';
-  portInfo: PortInformation;
+  portInfo: WebSocketPortInformation;
 }
 
 export interface DisconnectedFromCodespaceMessage extends BaseMessage {
@@ -199,7 +199,7 @@ export interface ForwardedPort {
   isUserPort: boolean;
 }
 
-export interface PortInformation {
+export interface WebSocketPortInformation {
   userPorts: any[];
   managementPorts: any[];
   allPorts: any[];

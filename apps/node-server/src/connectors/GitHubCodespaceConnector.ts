@@ -16,17 +16,24 @@ import { forwardSshPortOverTunnel, getPortInformation } from '../tunnel/TunnelMo
 import { Ssh2Connector } from './Ssh2Connector.js';
 import { logger } from '../utils/logger.js';
 
+interface ConnectorOptions {
+  debugMode?: boolean;
+}
+
 export class GitHubCodespaceConnector {
   private accessToken: string;
   private ws: WebSocket;
   private server: any; // CodespaceTerminalServer
+  private options: ConnectorOptions;
 
-  constructor(accessToken: string, ws: WebSocket, server: any) {
+  constructor(accessToken: string, ws: WebSocket, server: any, options: ConnectorOptions = {}) {
     this.accessToken = accessToken;
     this.ws = ws;
     this.server = server;
+    this.options = options;
     logger.debug('GitHubCodespaceConnector initialized', {
-      tokenSuffix: accessToken ? '*****' + accessToken.substring(accessToken.length - 4) : 'None'
+      tokenSuffix: accessToken ? '*****' + accessToken.substring(accessToken.length - 4) : 'None',
+      debugMode: options.debugMode
     });
   }
 
@@ -167,7 +174,9 @@ export class GitHubCodespaceConnector {
       }
 
       const tunnelProperties = await this.getTunnelProperties(codespaceName);
-      const result: TunnelConnectionResult = await forwardSshPortOverTunnel(tunnelProperties);
+      const result: TunnelConnectionResult = await forwardSshPortOverTunnel(tunnelProperties, { 
+        debugMode: this.options.debugMode 
+      });
       
       // Store tunnel information on the WebSocket session
       (ws as any).tunnelClient = result.tunnelClient;
@@ -191,7 +200,7 @@ export class GitHubCodespaceConnector {
             this.sendCodespaceState(ws, codespaceName, 'Shutdown');
           }
         },
-        result.localPort
+        result.localPort || 2222
       );
 
       // Send connected state after successful SSH connection

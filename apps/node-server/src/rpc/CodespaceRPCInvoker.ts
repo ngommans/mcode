@@ -8,6 +8,7 @@ import * as grpc from '@grpc/grpc-js';
 import * as net from 'net';
 import * as protobuf from 'protobufjs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import type { TunnelRelayTunnelClient } from '@microsoft/dev-tunnels-connections';
 
 /**
@@ -372,6 +373,9 @@ async function loadProtoDefinitions(): Promise<void> {
   }
   
   try {
+    // Get the directory of the current module file in ES modules
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
     const protoDir = path.join(__dirname, 'proto');
     
     // Load SSH service proto

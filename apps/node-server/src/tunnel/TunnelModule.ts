@@ -9,7 +9,7 @@ import { TunnelAccessScopes, TunnelProtocol } from '@microsoft/dev-tunnels-contr
 import type { TunnelProperties, TunnelConnectionResult, PortInformation } from '@minimal-terminal-client/shared';
 import * as grpc from '@grpc/grpc-js';
 import * as net from 'net';
-import { createInvoker, type CodespaceRPCInvoker } from '../rpc/CodespaceRPCInvoker';
+import { createInvoker, type CodespaceRPCInvoker } from '../rpc/CodespaceRPCInvoker.js';
 
 interface TunnelReference {
   tunnelId: string;
@@ -182,7 +182,7 @@ async function createRPCInvokerAndStartSSH(
   }
 }
 
-export async function forwardSshPortOverTunnel(tunnelProperties: TunnelProperties): Promise<TunnelConnectionResult> {
+export async function forwardSshPortOverTunnel(tunnelProperties: TunnelProperties, options: { debugMode?: boolean } = {}): Promise<TunnelConnectionResult> {
   const userAgent: UserAgent = {
     name: "codespace-tunnel-client",
     version: "1.0.0",
@@ -228,14 +228,14 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
       accessToken: tunnelProperties.managePortsAccessToken,
     });
     
-    // Categorize ports
-    portInfo.allPorts = existingPorts;
+    // Categorize ports (cast to any to handle type differences)
+    portInfo.allPorts = existingPorts as any[];
     portInfo.userPorts = existingPorts.filter(port => 
       port.labels && port.labels.includes('UserForwardedPort')
-    );
+    ) as any[];
     portInfo.managementPorts = existingPorts.filter(port => 
       port.labels && port.labels.includes('InternalPort')
-    );
+    ) as any[];
 
     console.log(`Found ${portInfo.userPorts.length} user ports, ${portInfo.managementPorts.length} management ports`);
 
@@ -258,68 +258,75 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
     // Track SSH port forwarding from trace messages
     let detectedSSHPort: number | null = null;
     
-    client.trace = (_level: any, _eventId: any, msg: any, err?: any) => {
-      console.log(`Tunnel Client Trace: ${msg}`);
-      if (err) console.error(err);
-      
-      // Parse trace messages to detect SSH port forwarding
-      if (typeof msg === 'string') {
-        // Debug: log messages that contain SSH-related ports
-        if (msg.includes('port 22') || msg.includes('port 2222')) {
-          console.log(`🔍 DEBUG: Found SSH port message: "${msg}"`);
-        }
+    // Only enable trace listening in debug mode
+    if (options.debugMode) {
+      console.log('🔧 Debug mode enabled - activating trace listener');
+      client.trace = (_level: any, _eventId: any, msg: any, err?: any) => {
+        console.log(`Tunnel Client Trace: ${msg}`);
+        if (err) console.error(err);
         
-        // Look for ALL port forwarding patterns to understand what's happening
-        // Pattern 1: "Forwarding from 127.0.0.1:XXXXX to host port YYYY."
-        const allForwardMatch1 = msg.match(/Forwarding from 127\.0\.0\.1:(\d+) to host port (\d+)\./);
-        if (allForwardMatch1) {
-          const localPort = parseInt(allForwardMatch1[1], 10);
-          const remotePort = parseInt(allForwardMatch1[2], 10);
-          console.log(`🎯 DETECTED (All Ports): Remote port ${remotePort} forwarded to local port ${localPort}`);
+        // Parse trace messages to detect SSH port forwarding
+        if (typeof msg === 'string') {
+          // Debug: log messages that contain SSH-related ports
+          if (msg.includes('port 22') || msg.includes('port 2222')) {
+            console.log(`🔍 DEBUG: Found SSH port message: "${msg}"`);
+          }
           
-          // Check if this is our SSH port
-          if (remotePort === 22 || remotePort === 2222) {
-            console.log(`🎯 SSH PORT DETECTED: Remote port ${remotePort} -> local port ${localPort}`);
-            detectedSSHPort = localPort;
+          // Look for ALL port forwarding patterns to understand what's happening
+          // Pattern 1: "Forwarding from 127.0.0.1:XXXXX to host port YYYY."
+          const allForwardMatch1 = msg.match(/Forwarding from 127\.0\.0\.1:(\d+) to host port (\d+)\./);
+          if (allForwardMatch1) {
+            const localPort = parseInt(allForwardMatch1[1], 10);
+            const remotePort = parseInt(allForwardMatch1[2], 10);
+            console.log(`🎯 DETECTED (All Ports): Remote port ${remotePort} forwarded to local port ${localPort}`);
+            
+            // Check if this is our SSH port
+            if (remotePort === 22 || remotePort === 2222) {
+              console.log(`🎯 SSH PORT DETECTED: Remote port ${remotePort} -> local port ${localPort}`);
+              detectedSSHPort = localPort;
+            }
+          }
+          
+          // Pattern 2: Without period at end
+          const allForwardMatch2 = msg.match(/Forwarding from 127\.0\.0\.1:(\d+) to host port (\d+)$/);
+          if (allForwardMatch2) {
+            const localPort = parseInt(allForwardMatch2[1], 10);
+            const remotePort = parseInt(allForwardMatch2[2], 10);
+            console.log(`🎯 DETECTED (All Ports No Period): Remote port ${remotePort} forwarded to local port ${localPort}`);
+            
+            // Check if this is our SSH port
+            if (remotePort === 22 || remotePort === 2222) {
+              console.log(`🎯 SSH PORT DETECTED: Remote port ${remotePort} -> local port ${localPort}`);
+              detectedSSHPort = localPort;
+            }
+          }
+          
+          // Pattern 3: More flexible pattern that allows for whitespace variations
+          const allForwardMatch3 = msg.match(/Forwarding\s+from\s+127\.0\.0\.1:(\d+)\s+to\s+host\s+port\s+(\d+)/);
+          if (allForwardMatch3) {
+            const localPort = parseInt(allForwardMatch3[1], 10);
+            const remotePort = parseInt(allForwardMatch3[2], 10);
+            console.log(`🎯 DETECTED (All Ports Flexible): Remote port ${remotePort} forwarded to local port ${localPort}`);
+            
+            // Check if this is our SSH port
+            if (remotePort === 22 || remotePort === 2222) {
+              console.log(`🎯 SSH PORT DETECTED: Remote port ${remotePort} -> local port ${localPort}`);
+              detectedSSHPort = localPort;
+            }
+          }
+          
+          // Also look for RPC port forwarding
+          const rpcForwardMatch = msg.match(/Forwarding from 127\.0\.0\.1:(\d+) to host port 16634\./);
+          if (rpcForwardMatch) {
+            const localPort = parseInt(rpcForwardMatch[1], 10);
+            console.log(`🎯 DETECTED: RPC port 16634 forwarded to local port ${localPort}`);
           }
         }
-        
-        // Pattern 2: Without period at end
-        const allForwardMatch2 = msg.match(/Forwarding from 127\.0\.0\.1:(\d+) to host port (\d+)$/);
-        if (allForwardMatch2) {
-          const localPort = parseInt(allForwardMatch2[1], 10);
-          const remotePort = parseInt(allForwardMatch2[2], 10);
-          console.log(`🎯 DETECTED (All Ports No Period): Remote port ${remotePort} forwarded to local port ${localPort}`);
-          
-          // Check if this is our SSH port
-          if (remotePort === 22 || remotePort === 2222) {
-            console.log(`🎯 SSH PORT DETECTED: Remote port ${remotePort} -> local port ${localPort}`);
-            detectedSSHPort = localPort;
-          }
-        }
-        
-        // Pattern 3: More flexible pattern that allows for whitespace variations
-        const allForwardMatch3 = msg.match(/Forwarding\s+from\s+127\.0\.0\.1:(\d+)\s+to\s+host\s+port\s+(\d+)/);
-        if (allForwardMatch3) {
-          const localPort = parseInt(allForwardMatch3[1], 10);
-          const remotePort = parseInt(allForwardMatch3[2], 10);
-          console.log(`🎯 DETECTED (All Ports Flexible): Remote port ${remotePort} forwarded to local port ${localPort}`);
-          
-          // Check if this is our SSH port
-          if (remotePort === 22 || remotePort === 2222) {
-            console.log(`🎯 SSH PORT DETECTED: Remote port ${remotePort} -> local port ${localPort}`);
-            detectedSSHPort = localPort;
-          }
-        }
-        
-        // Also look for RPC port forwarding
-        const rpcForwardMatch = msg.match(/Forwarding from 127\.0\.0\.1:(\d+) to host port 16634\./);
-        if (rpcForwardMatch) {
-          const localPort = parseInt(rpcForwardMatch[1], 10);
-          console.log(`🎯 DETECTED: RPC port 16634 forwarded to local port ${localPort}`);
-        }
-      }
-    };
+      };
+    } else {
+      console.log('🔧 Debug mode disabled - trace listener not activated');
+      console.log('🔧 Use --debug flag to enable detailed trace logging');
+    }
 
     console.log('Connecting tunnel client for port forwarding...');
     const updatedTunnel = await tunnelManagementClient.getTunnel(tunnelReference, tunnelRequestOptions);
@@ -800,20 +807,31 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
     console.log('');
 
     // Update port info with fresh data after connection
-    portInfo.allPorts = refreshedPorts;
+    portInfo.allPorts = refreshedPorts as any[];
     portInfo.userPorts = refreshedPorts.filter(port => 
       port.labels && port.labels.includes('UserForwardedPort')
-    );
+    ) as any[];
     portInfo.managementPorts = refreshedPorts.filter(port => 
       port.labels && port.labels.includes('InternalPort')
-    );
+    ) as any[];
 
     return { 
+      success: true,
       localPort: extractedLocalPort, 
-      tunnelClient: client, 
+      client: client,
+      tunnelClient: client, // Backwards compatibility
       portInfo: portInfo,
       endpointInfo: endpointInfo,
-      tunnelManagementClient: tunnelManagementClient
+      tunnelManagementClient: tunnelManagementClient,
+      cleanup: () => {
+        try {
+          if (client && typeof (client as any).disconnect === 'function') {
+            (client as any).disconnect();
+          }
+        } catch (error) {
+          console.error('Error during cleanup:', error);
+        }
+      }
     };
 
   } catch (err) {

@@ -23,12 +23,18 @@ interface ExtendedWebSocket extends WebSocket {
   tunnelProperties?: any;
 }
 
+interface ServerOptions {
+  debugMode?: boolean;
+}
+
 export class CodespaceTerminalServer {
   private wss: WebSocketServer;
   private port: number;
+  private options: ServerOptions;
 
-  constructor(port: number) {
+  constructor(port: number, options: ServerOptions = {}) {
     this.port = port;
+    this.options = options;
     this.wss = new WebSocketServer({ port: this.port });
     this.init();
   }
@@ -122,7 +128,7 @@ export class CodespaceTerminalServer {
   }
 
   private async handleAuthenticate(ws: ExtendedWebSocket, message: { token: string }): Promise<void> {
-    ws.connector = new GitHubCodespaceConnector(message.token, ws, this);
+    ws.connector = new GitHubCodespaceConnector(message.token, ws, this, { debugMode: this.options.debugMode });
     this.sendMessage(ws, {
       type: MESSAGE_TYPES.AUTHENTICATED,
       success: true
