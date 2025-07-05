@@ -671,6 +671,55 @@ TBD
 
 TBD
 
+## Troubleshooting
+
+### Tailwind CSS Build Issues
+
+**Symptom:**
+- CSS classes from the `packages/ui-components` are not being applied in the `apps/web-client`.
+- The generated CSS file in `apps/web-client/dist/assets` is corrupted with content from other files in the monorepo (e.g., Go source files, YAML files).
+
+**Cause:**
+- A misconfiguration in the build toolchain (Vite, PostCSS, Tailwind) causes Tailwind's `content` scanning to search the entire monorepo, not just the intended directories. This can be triggered by using `require.resolve` in the `tailwind.config.js` file.
+
+**Resolution:**
+1.  **Use a direct relative path** in `apps/web-client/tailwind.config.js` to point to the `ui-components` package:
+    ```javascript
+    // tailwind.config.js
+    module.exports = {
+      content: [
+        "./index.html",
+        "./src/**/*.{js,ts,jsx,tsx}",
+        "../../packages/ui-components/src/**/*.{js,ts,jsx,tsx}",
+      ],
+      // ...
+    };
+    ```
+2.  **Avoid `@apply` in CSS files.**  Using `@apply` can sometimes cause issues with Tailwind's JIT compiler. It's more robust to use the full class names in the HTML.
+3.  **If the issue persists,** try simplifying the `tailwind.config.js` to its bare minimum and adding `important: true` to see if the issue is related to specificity or a complex configuration.
+
+## UI Component Styling and Technical Debt
+
+**Problem:**
+- The Lit-based web components in `packages/ui-components` were not being styled by the main Tailwind CSS file in `apps/web-client`. This is because Lit components use a Shadow DOM, which encapsulates their styles and prevents global stylesheets from affecting them.
+
+**Solution:**
+1.  **Created a separate CSS file** (`packages/ui-components/src/styles.css`) that contains the `@tailwind` directives.
+2.  **Imported the CSS file** into the Lit component (`packages/ui-components/src/connection-modal-codespaces.ts`) using Vite's `?inline` feature. This imports the CSS as a string.
+3.  **Used the `unsafeCSS` directive** from Lit to safely apply the imported CSS string to the component's `static styles`.
+4.  **Updated the build process** for the `ui-components` package to copy the `styles.css` file to the `dist` directory. This ensures that the file is available when the `web-client` imports it.
+5.  **Added `postcss-import`** to the `postcss.config.cjs` in `apps/web-client` to ensure that the styles from the `ui-components` package are correctly processed.
+
+**Technical Debt:**
+- The current solution creates a tight coupling between the `ui-components` package and the `web-client`'s build process. The `ui-components` package now relies on Vite's `?inline` feature, which is not a standard CSS feature.
+- The `styles.css` file in `ui-components` duplicates the `@tailwind` directives from the `main.css` file in `web-client`. This could lead to inconsistencies in the future.
+- The build process for `ui-components` is now more complex, as it requires an extra step to copy the CSS file.
+
+**Future Improvements:**
+- **Explore a more framework-agnostic way** to share styles between packages. This could involve using CSS-in-JS libraries that are designed to work with web components, or by creating a dedicated styling package that exports pre-compiled CSS.
+- **Investigate using a single, shared PostCSS configuration** for the entire monorepo. This would help to ensure that all packages are using the same PostCSS plugins and settings.
+- **Consider using a more sophisticated build tool** for the `ui-components` package that can handle CSS imports and other asset types automatically.
+
 ## Production Deployment
 
 TBD
