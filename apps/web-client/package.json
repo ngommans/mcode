@@ -17,6 +17,7 @@
     "lint:fix": "eslint src --ext .ts,.tsx --fix"
   },
   "dependencies": {
+    "@minimal-terminal-client/ui-components": "../packages/ui-components",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
     "postcss-import": "^16.1.1",
@@ -27,11 +28,12 @@
     "@types/dom-screen-wake-lock": "^1.0.3",
     "@vitest/coverage-v8": "^3.2.4",
     "@vitest/ui": "^3.2.4",
-    "autoprefixer": "^10.4.19",
-    "postcss": "^8.4.38",
+    "autoprefixer": "^10.4.21",
+    "daisyui": "^5.0.43",
+    "postcss": "^8.5.6",
     "rimraf": "^5.0.10",
-    "tailwindcss": "^3.4.3",
-    "vite": "^7.0.1",
+    "tailwindcss": "^3.4.17",
+    "vite": "^7.0.2",
     "vite-plugin-pwa": "^0.21.2",
     "vitest": "^3.2.4",
     "workbox-window": "^7.3.0"

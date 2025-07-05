@@ -15,7 +15,9 @@
     "dev-web:debug": "npm run dev --workspace=apps/web-client -- --debug",
     "start": "npm run start --workspace=apps/node-server",
     "start:console": "npm run start --workspace=apps/console-server",
-    "test": "npm run test --workspaces --if-present",
+    "test:unit": "vitest",
+    "test:e2e": "playwright test --config=playwright.config.ts",
+    "test": "npm run test:unit && npm run test:e2e",
     "test:coverage": "npm run test:coverage --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "lint:fix": "npm run lint:fix --workspaces --if-present",
@@ -24,18 +26,26 @@
     "deps:audit": "npm audit"
   },
   "devDependencies": {
+    "@playwright/test": "^1.53.2",
+    "@testing-library/preact": "^3.2.4",
     "@types/node": "^20.19.4",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
+    "@vitest/coverage-v8": "^3.2.4",
     "concurrently": "^8.2.2",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.5.1",
     "husky": "^8.0.3",
+    "jsdom": "^26.1.0",
     "lint-staged": "^15.5.2",
+    "msw": "^2.10.3",
+    "nock": "^13.5.6",
+    "playwright": "^1.53.2",
     "prettier": "^3.6.2",
     "rimraf": "^5.0.10",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
   },
   "engines": {
     "node": ">=18.0.0",
