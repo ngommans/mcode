@@ -235,6 +235,28 @@ If you encounter `Starting` or `Provisioning` states:
 npm run dev --debug
 ```
 
+#### Environment Variables for RPC Session Management
+
+You can configure the heartbeat and session keep-alive behavior using environment variables:
+
+```bash
+# RPC heartbeat interval (default: 60000ms = 1 minute)
+RPC_HEARTBEAT_INTERVAL=60000
+
+# Session keep-alive after client disconnect (default: 300000ms = 5 minutes)
+RPC_SESSION_KEEPALIVE=300000
+
+# Example: More aggressive settings for testing
+RPC_HEARTBEAT_INTERVAL=30000  # 30 second heartbeat
+RPC_SESSION_KEEPALIVE=120000  # 2 minute grace period
+```
+
+**How it works:**
+- When a client disconnects, the RPC connection enters a **grace period** instead of immediate cleanup
+- During the grace period, heartbeat calls are paused to avoid futile gRPC attempts
+- If the client reconnects within the grace period, the existing tunnel and RPC connections are reused
+- If the grace period expires, resources are automatically released
+
 ## Key Milestones & Technical Breakthroughs
 
 ### 🎯 **CRITICAL BREAKTHROUGH: SSH Port Forwarding Fixed** ✅ **COMPLETED** 

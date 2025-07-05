@@ -74,6 +74,12 @@ export class CodespaceTerminalServer {
 
     ws.on('close', async () => {
       logger.info('Client disconnected');
+      
+      // Mark RPC connection as disconnected to start grace period
+      if (ws.rpcConnection) {
+        ws.rpcConnection.markAsDisconnected();
+      }
+      
       await this.cleanup(ws);
     });
 
@@ -234,15 +240,11 @@ export class CodespaceTerminalServer {
         }
       }
       
-      // Clean up RPC connection (this stops the heartbeat)
+      // Don't immediately close RPC connection - let grace period handle it
+      // The RPC connection will auto-cleanup after the grace period expires
       if (ws.rpcConnection) {
-        logger.info('Closing RPC connection on WebSocket close');
-        try {
-          await ws.rpcConnection.close();
-        } catch (error) {
-          logger.error('Error closing RPC connection', error as Error);
-        }
-        ws.rpcConnection = undefined;
+        logger.info('RPC connection entering grace period - will auto-cleanup if client doesn\'t reconnect');
+        // Don't set to undefined yet - keep reference for potential reconnection
       }
       
       // Dispose tunnel client last

@@ -84,6 +84,9 @@ export interface CodespaceRPCInvoker {
   startSSHServer(): Promise<SSHServerResult>;
   startSSHServerWithOptions(options: StartSSHServerOptions): Promise<SSHServerResult>;
   keepAlive(): void;
+  // Connection state management
+  markAsDisconnected(): void;
+  markAsReconnected(): void;
 }
 
 interface InvokerImpl {
@@ -95,6 +98,11 @@ interface InvokerImpl {
   keepAliveOverride: boolean;
   heartbeatInterval?: NodeJS.Timeout;
   authToken?: string;
+  // Connection management for keep-alive
+  isConnected: boolean;
+  disconnectTime?: number;
+  gracePeriodTimeout?: NodeJS.Timeout;
+  isPaused: boolean;
 }
 
 /**
@@ -107,7 +115,9 @@ export async function createInvoker(
   const invoker: InvokerImpl = {
     tunnelClient,
     keepAliveOverride: false,
-    authToken
+    authToken,
+    isConnected: true,
+    isPaused: false
   };
 
   try {
@@ -590,33 +600,133 @@ async function notifyCodespaceOfClientActivity(invoker: InvokerImpl, activity: s
 }
 
 /**
- * Start heartbeat to keep connection alive
+ * Start connection-aware heartbeat to keep codespace alive
  */
 function startHeartbeat(invoker: InvokerImpl): void {
-  const interval = 60000; // 1 minute
+  // Configurable timeouts via environment variables
+  const heartbeatInterval = parseInt(process.env.RPC_HEARTBEAT_INTERVAL || '60000', 10); // Default: 1 minute
+  const gracePeriod = parseInt(process.env.RPC_SESSION_KEEPALIVE || '300000', 10); // Default: 5 minutes
+  
+  console.log(`🫀 Starting RPC heartbeat: ${heartbeatInterval/1000}s interval, ${gracePeriod/1000}s grace period`);
   
   invoker.heartbeatInterval = setInterval(() => {
-    let reason = '';
-    
-    if (invoker.keepAliveOverride) {
-      reason = 'keepAlive';
-    } else {
-      // TODO: Get keep-alive reason from tunnel client
-      reason = 'activity';
+    // Skip heartbeat if paused or if gRPC connection is unavailable
+    if (invoker.isPaused || !invoker.grpcConnection) {
+      console.log('⏸️  Heartbeat paused - no active client connection');
+      return;
     }
     
-    notifyCodespaceOfClientActivity(invoker, reason).catch((error) => {
-      console.error('Heartbeat failed:', error);
-    });
-  }, interval);
+    // Skip heartbeat if we're in disconnected state but still within grace period
+    if (!invoker.isConnected && invoker.disconnectTime) {
+      const timeSinceDisconnect = Date.now() - invoker.disconnectTime;
+      if (timeSinceDisconnect < gracePeriod) {
+        console.log(`⏳ Client disconnected ${Math.round(timeSinceDisconnect/1000)}s ago - waiting ${Math.round((gracePeriod - timeSinceDisconnect)/1000)}s more before releasing resources`);
+        return;
+      } else {
+        console.log('🕐 Grace period expired - client not reconnected, releasing resources');
+        releaseResources(invoker);
+        return;
+      }
+    }
+    
+    // Only send heartbeat if we have an active connection
+    if (invoker.isConnected && invoker.grpcConnection) {
+      let reason = '';
+      
+      if (invoker.keepAliveOverride) {
+        reason = 'keepAlive';
+      } else {
+        reason = 'activity';
+      }
+      
+      notifyCodespaceOfClientActivity(invoker, reason).catch((error) => {
+        // If gRPC fails, it likely means the tunnel is down
+        if (error.message?.includes('UNAVAILABLE') || error.message?.includes('ECONNREFUSED')) {
+          console.log('🔌 gRPC connection lost - marking as disconnected');
+          markAsDisconnected(invoker);
+        } else {
+          console.error('Heartbeat failed:', error);
+        }
+      });
+    }
+  }, heartbeatInterval);
+}
+
+/**
+ * Mark the invoker as disconnected and start grace period
+ */
+function markAsDisconnected(invoker: InvokerImpl): void {
+  const gracePeriod = parseInt(process.env.RPC_SESSION_KEEPALIVE || '300000', 10); // Default: 5 minutes
+  
+  if (invoker.isConnected) {
+    console.log(`📴 Marking RPC connection as disconnected - starting ${gracePeriod/1000}s grace period`);
+    invoker.isConnected = false;
+    invoker.disconnectTime = Date.now();
+    
+    // Set up grace period timeout
+    if (invoker.gracePeriodTimeout) {
+      clearTimeout(invoker.gracePeriodTimeout);
+    }
+    
+    invoker.gracePeriodTimeout = setTimeout(() => {
+      console.log('⏰ Grace period expired - auto-releasing RPC resources');
+      releaseResources(invoker);
+    }, gracePeriod);
+  }
+}
+
+/**
+ * Mark the invoker as reconnected
+ */
+function markAsReconnected(invoker: InvokerImpl): void {
+  if (!invoker.isConnected) {
+    console.log('🔄 Client reconnected - canceling resource release');
+    invoker.isConnected = true;
+    invoker.disconnectTime = undefined;
+    
+    if (invoker.gracePeriodTimeout) {
+      clearTimeout(invoker.gracePeriodTimeout);
+      invoker.gracePeriodTimeout = undefined;
+    }
+  }
+}
+
+/**
+ * Release RPC resources due to extended disconnection
+ */
+function releaseResources(invoker: InvokerImpl): void {
+  console.log('🗑️  Releasing RPC resources due to extended client disconnection');
+  
+  // Pause heartbeat to stop futile gRPC calls
+  invoker.isPaused = true;
+  
+  // Close gRPC connection
+  if (invoker.grpcConnection) {
+    try {
+      invoker.grpcConnection.close();
+    } catch (error) {
+      console.error('Error closing gRPC connection:', error);
+    }
+    invoker.grpcConnection = undefined;
+  }
+  
+  // The tunnel client and other resources will be cleaned up when the WebSocket fully disconnects
 }
 
 /**
  * Clean up resources
  */
 async function cleanup(invoker: InvokerImpl): Promise<void> {
+  console.log('🧹 Cleaning up RPC invoker resources');
+  
   if (invoker.heartbeatInterval) {
     clearInterval(invoker.heartbeatInterval);
+    invoker.heartbeatInterval = undefined;
+  }
+  
+  if (invoker.gracePeriodTimeout) {
+    clearTimeout(invoker.gracePeriodTimeout);
+    invoker.gracePeriodTimeout = undefined;
   }
   
   if (invoker.cancelPF) {
@@ -625,6 +735,7 @@ async function cleanup(invoker: InvokerImpl): Promise<void> {
   
   if (invoker.grpcConnection) {
     invoker.grpcConnection.close();
+    invoker.grpcConnection = undefined;
   }
   
   if (invoker.localListener) {
@@ -782,6 +893,14 @@ function createInvokerInterface(invoker: InvokerImpl): CodespaceRPCInvoker {
     keepAlive(): void {
       invoker.keepAliveOverride = true;
       console.log('Keep-alive override enabled');
+    },
+    
+    markAsDisconnected(): void {
+      markAsDisconnected(invoker);
+    },
+    
+    markAsReconnected(): void {
+      markAsReconnected(invoker);
     }
   };
 }
