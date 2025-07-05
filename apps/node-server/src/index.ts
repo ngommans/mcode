@@ -9,6 +9,20 @@ import { logger } from './utils/logger.js';
 // Load environment variables
 config();
 
+// Add global error handlers to prevent crashes from disposed SSH channels
+process.on('uncaughtException', (error) => {
+  if (error.message?.includes('SshChannel disposed') || error.message?.includes('ObjectDisposedError')) {
+    logger.warn('Caught SSH channel disposal error (non-fatal)', { message: error.message });
+  } else {
+    logger.error('Uncaught exception', error);
+    process.exit(1);
+  }
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled promise rejection', { reason, promise });
+});
+
 const DEFAULT_PORT = 3002;
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : DEFAULT_PORT;
 

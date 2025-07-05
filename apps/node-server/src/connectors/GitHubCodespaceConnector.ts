@@ -167,15 +167,23 @@ export class GitHubCodespaceConnector {
     try {
       logger.info('Intercepting connection request for codespace', { codespaceName });
 
-      // If there's an existing tunnel client, dispose of it
-      if ((ws as any).tunnelClient) {
-        logger.info('Disposing of existing tunnel client');
+      // If there's an existing tunnel client, dispose of it properly
+      if ((ws as any).tunnelClient || (ws as any).rpcConnection) {
+        logger.info('Disposing of existing tunnel and RPC connections');
         try {
-          await (ws as any).tunnelClient.dispose();
+          // Close RPC connection first (stops heartbeat)
+          if ((ws as any).rpcConnection) {
+            await (ws as any).rpcConnection.close();
+          }
+          // Then dispose tunnel client
+          if ((ws as any).tunnelClient) {
+            await (ws as any).tunnelClient.dispose();
+          }
         } catch (disposeError) {
-          logger.error('Error disposing tunnel client', disposeError as Error);
+          logger.error('Error disposing existing connections', disposeError as Error);
         }
         (ws as any).tunnelClient = null;
+        (ws as any).rpcConnection = null;
         (ws as any).portInfo = null;
         (ws as any).endpointInfo = null;
         (ws as any).tunnelManagementClient = null;
@@ -193,6 +201,7 @@ export class GitHubCodespaceConnector {
       (ws as any).endpointInfo = result.endpointInfo;
       (ws as any).tunnelManagementClient = result.tunnelManagementClient;
       (ws as any).tunnelProperties = tunnelProperties;
+      (ws as any).rpcConnection = result.rpcConnection; // Store RPC connection for cleanup
 
       logger.info('Connecting to local port', { localPort: result.localPort });
 

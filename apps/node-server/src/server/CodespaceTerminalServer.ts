@@ -21,6 +21,7 @@ interface ExtendedWebSocket extends WebSocket {
   endpointInfo?: any;
   tunnelManagementClient?: any;
   tunnelProperties?: any;
+  rpcConnection?: any; // CodespaceRPCInvoker
 }
 
 interface ServerOptions {
@@ -71,14 +72,14 @@ export class CodespaceTerminalServer {
       }
     });
 
-    ws.on('close', () => {
+    ws.on('close', async () => {
       logger.info('Client disconnected');
-      this.cleanup(ws);
+      await this.cleanup(ws);
     });
 
-    ws.on('error', (error) => {
+    ws.on('error', async (error) => {
       logger.error('WebSocket connection error', error);
-      this.cleanup(ws);
+      await this.cleanup(ws);
     });
   }
 
@@ -222,14 +223,47 @@ export class CodespaceTerminalServer {
     await ws.connector.refreshPortInformation(ws);
   }
 
-  private cleanup(ws: ExtendedWebSocket): void {
-    if (ws.terminalConnection) {
-      ws.terminalConnection.close();
-    }
-    
-    if (ws.tunnelClient) {
-      logger.info('Disposing of tunnel client on WebSocket close');
-      ws.tunnelClient.dispose();
+  private async cleanup(ws: ExtendedWebSocket): Promise<void> {
+    try {
+      // Close terminal connection first
+      if (ws.terminalConnection) {
+        try {
+          ws.terminalConnection.close();
+        } catch (error) {
+          logger.error('Error closing terminal connection', error as Error);
+        }
+      }
+      
+      // Clean up RPC connection (this stops the heartbeat)
+      if (ws.rpcConnection) {
+        logger.info('Closing RPC connection on WebSocket close');
+        try {
+          await ws.rpcConnection.close();
+        } catch (error) {
+          logger.error('Error closing RPC connection', error as Error);
+        }
+        ws.rpcConnection = undefined;
+      }
+      
+      // Dispose tunnel client last
+      if (ws.tunnelClient) {
+        logger.info('Disposing of tunnel client on WebSocket close');
+        try {
+          await ws.tunnelClient.dispose();
+        } catch (error) {
+          logger.error('Error disposing tunnel client', error as Error);
+        }
+        ws.tunnelClient = undefined;
+      }
+      
+      // Clear all tunnel-related properties
+      ws.portInfo = undefined;
+      ws.endpointInfo = undefined;
+      ws.tunnelManagementClient = undefined;
+      ws.tunnelProperties = undefined;
+      
+    } catch (error) {
+      logger.error('Error during WebSocket cleanup', error as Error);
     }
   }
 
