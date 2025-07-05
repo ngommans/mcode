@@ -6,7 +6,7 @@
 
 import * as grpc from '@grpc/grpc-js';
 import * as net from 'net';
-import * as protobuf from 'protobufjs';
+import protobuf from 'protobufjs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import type { TunnelRelayTunnelClient } from '@microsoft/dev-tunnels-connections';

@@ -97,6 +97,25 @@ npm run client
 3.  Select a Codespace from the dropdown or enter a GitHub Repository URL (e.g., `https://github.com/ngommans/mcode.git`) and click "Connect to Repo Codespace".
 4.  Click "Connect Codespace" to establish the terminal session. The button will change to "Disconnect Codespace" when connected.
 
+### Continuous Development (Monorepo Watch Trick)
+
+When developing across different packages in this monorepo (e.g., making changes in `packages/ui-components` while running `apps/web-client`),
+you can set up a continuous watch process for the shared packages.
+This ensures that changes in one package are automatically rebuilt and reflected in dependent applications without manual intervention.
+
+1.  **In a separate terminal window**, start the watch process for the `ui-components` package:
+    ```bash
+    npm run build -- --watch -w packages/ui-components
+    ```
+    This command tells TypeScript to watch for changes in the `ui-components` source files and automatically recompile them into the `dist` directory.
+
+2.  **Keep your web client development server running** in its own terminal:
+    ```bash
+    npm -w apps/web-client run dev
+    ```
+
+With this setup, any modifications to `packages/ui-components` will trigger an automatic rebuild, and Vite (running the web client) will detect these changes and hot-reload your application, providing a seamless development experience.
+
 ## Port Information Extraction
 
 ### Understanding Tunnel Ports
@@ -175,6 +194,46 @@ node testTunnelPorts.js
 - Codespace must be in "Available" state
 
 This script provides detailed inspection of all available port extraction methods and properties, helping debug any port detection issues.
+
+## Codespace Connection & Initialization
+
+### Understanding Codespace States
+
+When connecting to a GitHub Codespace, you may encounter different states that affect connection success:
+
+#### Expected States
+- **Available**: Ready for connections
+- **Starting**: Codespace is initializing (first boot or wake from sleep)
+- **Provisioning**: Codespace is being created for the first time
+
+#### Retry Logic for Initialization States
+
+If you encounter `Starting` or `Provisioning` states:
+
+1. **This is normal behavior** - Codespaces take 30-90 seconds to initialize
+2. **Wait and retry** - The client will show a retryable error message
+3. **Monitor progress** - The status will update as the codespace becomes available
+
+#### Example Error Messages
+```
+❌ Codespace is Starting. This is normal during initialization - please retry in 30-60 seconds.
+❌ Codespace is Provisioning. This is normal during initialization - please retry in 30-60 seconds.
+```
+
+#### Troubleshooting Connection Issues
+
+**Common issues and solutions:**
+
+1. **Codespace not ready**: Wait 30-60 seconds and retry
+2. **Invalid credentials**: Check your GitHub token has Codespace access
+3. **SSH port forwarding timeout**: Codespace may still be starting services
+4. **Protobuf errors**: Ensure the latest dependencies are installed
+
+**Debug mode for detailed diagnostics:**
+```bash
+# Run with debug flag for detailed trace logging
+npm run dev --debug
+```
 
 ## Key Milestones & Technical Breakthroughs
 

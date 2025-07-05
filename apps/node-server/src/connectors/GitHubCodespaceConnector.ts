@@ -124,9 +124,18 @@ export class GitHubCodespaceConnector {
             
             // Check codespace state before attempting connection
             if (response.state && response.state !== 'Available') {
-              const error = new Error(`Codespace is not available. Current state: ${response.state}. Please start the codespace first.`);
-              this.sendCodespaceState(this.ws, codespaceName, response.state);
-              return reject(error);
+              // Handle specific states that might become available
+              if (response.state === 'Starting' || response.state === 'Provisioning') {
+                const retryableError = new Error(`Codespace is ${response.state}. This is normal during initialization - please retry in 30-60 seconds.`);
+                (retryableError as any).retryable = true;
+                (retryableError as any).codespaceState = response.state;
+                this.sendCodespaceState(this.ws, codespaceName, response.state);
+                return reject(retryableError);
+              } else {
+                const error = new Error(`Codespace is not available. Current state: ${response.state}. Please start the codespace first.`);
+                this.sendCodespaceState(this.ws, codespaceName, response.state);
+                return reject(error);
+              }
             }
             
             if (response.connection && response.connection.tunnelProperties) {

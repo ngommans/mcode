@@ -258,34 +258,38 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
     // Track SSH port forwarding from trace messages
     let detectedSSHPort: number | null = null;
     
-    // Only enable trace listening in debug mode
-    if (options.debugMode) {
-      console.log('🔧 Debug mode enabled - activating trace listener');
-      client.trace = (_level: any, _eventId: any, msg: any, err?: any) => {
+    // Always enable trace listening for SSH port detection (but limit logging based on debug mode)
+    console.log('🔧 Activating trace listener for SSH port detection');
+    client.trace = (_level: any, _eventId: any, msg: any, err?: any) => {
+      // Only log detailed traces in debug mode
+      if (options.debugMode) {
         console.log(`Tunnel Client Trace: ${msg}`);
         if (err) console.error(err);
+      }
         
-        // Parse trace messages to detect SSH port forwarding
-        if (typeof msg === 'string') {
-          // Debug: log messages that contain SSH-related ports
-          if (msg.includes('port 22') || msg.includes('port 2222')) {
-            console.log(`🔍 DEBUG: Found SSH port message: "${msg}"`);
-          }
+      // Parse trace messages to detect SSH port forwarding (always enabled)
+      if (typeof msg === 'string') {
+        // Debug: log messages that contain SSH-related ports (only in debug mode)
+        if (options.debugMode && (msg.includes('port 22') || msg.includes('port 2222'))) {
+          console.log(`🔍 DEBUG: Found SSH port message: "${msg}"`);
+        }
           
           // Look for ALL port forwarding patterns to understand what's happening
           // Pattern 1: "Forwarding from 127.0.0.1:XXXXX to host port YYYY."
-          const allForwardMatch1 = msg.match(/Forwarding from 127\.0\.0\.1:(\d+) to host port (\d+)\./);
-          if (allForwardMatch1) {
-            const localPort = parseInt(allForwardMatch1[1], 10);
-            const remotePort = parseInt(allForwardMatch1[2], 10);
+        const allForwardMatch1 = msg.match(/Forwarding from 127\.0\.0\.1:(\d+) to host port (\d+)\.?/);
+        if (allForwardMatch1) {
+          const localPort = parseInt(allForwardMatch1[1], 10);
+          const remotePort = parseInt(allForwardMatch1[2], 10);
+          if (options.debugMode) {
             console.log(`🎯 DETECTED (All Ports): Remote port ${remotePort} forwarded to local port ${localPort}`);
-            
-            // Check if this is our SSH port
-            if (remotePort === 22 || remotePort === 2222) {
-              console.log(`🎯 SSH PORT DETECTED: Remote port ${remotePort} -> local port ${localPort}`);
-              detectedSSHPort = localPort;
-            }
           }
+          
+          // Check if this is our SSH port
+          if (remotePort === 22 || remotePort === 2222) {
+            console.log(`🎯 SSH PORT DETECTED: Remote port ${remotePort} -> local port ${localPort}`);
+            detectedSSHPort = localPort;
+          }
+        }
           
           // Pattern 2: Without period at end
           const allForwardMatch2 = msg.match(/Forwarding from 127\.0\.0\.1:(\d+) to host port (\d+)$/);
@@ -323,10 +327,6 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
           }
         }
       };
-    } else {
-      console.log('🔧 Debug mode disabled - trace listener not activated');
-      console.log('🔧 Use --debug flag to enable detailed trace logging');
-    }
 
     console.log('Connecting tunnel client for port forwarding...');
     const updatedTunnel = await tunnelManagementClient.getTunnel(tunnelReference, tunnelRequestOptions);
