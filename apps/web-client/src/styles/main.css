@@ -21,17 +21,22 @@ html, body {
 }
 
 body {
-  @apply bg-vscodeBg;
+  background-color: #0f0f0f;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  @apply flex flex-col;
 }
 
 #app {
-  @apply h-full w-full flex flex-col;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .terminal-app {
-  @apply h-full w-full flex flex-col;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .connection-modal.hidden {

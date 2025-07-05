@@ -3,25 +3,12 @@
  */
 
 import { defineConfig } from 'vite';
-// import { VitePWA } from 'vite-plugin-pwa';
+import preact from '@preact/preset-vite';
+import path from 'path';
 
 export default defineConfig({
   plugins: [
-    // TODO: Re-enable PWA plugin after fixing configuration
-    // VitePWA({
-    //   registerType: 'autoUpdate',
-    //   manifest: {
-    //     name: 'Minimal Terminal Client',
-    //     short_name: 'Terminal Client',
-    //     description: 'Terminal client for GitHub Codespaces',
-    //     theme_color: '#007acc',
-    //     background_color: '#0f0f0f',
-    //     display: 'standalone',
-    //     scope: '/',
-    //     start_url: '/',
-    //     icons: []
-    //   }
-    // })
+    preact(),
   ],
   build: {
     outDir: 'dist',
@@ -39,8 +26,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': '/src',
-      '@shared': '/../../packages/shared/src'
+      '@': path.resolve(__dirname, './src'),
+      '@shared': path.resolve(__dirname, '../../packages/shared/src'),
     }
   }
 });

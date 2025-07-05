@@ -18,19 +18,22 @@
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.10.0",
-    "@xterm/xterm": "^5.5.0"
+    "@xterm/xterm": "^5.5.0",
+    "postcss-import": "^16.1.1",
+    "preact": "^10.26.9"
   },
   "devDependencies": {
+    "@preact/preset-vite": "^2.10.2",
     "@types/dom-screen-wake-lock": "^1.0.3",
     "@vitest/coverage-v8": "^3.2.4",
     "@vitest/ui": "^3.2.4",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
     "rimraf": "^5.0.10",
+    "tailwindcss": "^3.4.3",
     "vite": "^7.0.1",
     "vite-plugin-pwa": "^0.21.2",
     "vitest": "^3.2.4",
-    "workbox-window": "^7.3.0",
-    "tailwindcss": "^3.4.3",
-    "postcss": "^8.4.38",
-    "autoprefixer": "^10.4.19"
+    "workbox-window": "^7.3.0"
   }
 }
