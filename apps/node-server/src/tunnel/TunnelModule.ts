@@ -141,9 +141,9 @@ async function createRPCInvokerAndStartSSH(
     
     // Attempt to start SSH server
     console.log('Starting SSH server via RPC...');
+    const sessionId = `tunnel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const sshResult = await rpcInvoker.startSSHServerWithOptions({
-      // TODO: Add public key file path when available
-      // userPublicKeyFile: '/path/to/public/key'
+      sessionId
     });
     
     console.log('SSH server start result:', sshResult);
@@ -823,6 +823,7 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
       portInfo: portInfo,
       endpointInfo: endpointInfo,
       tunnelManagementClient: tunnelManagementClient,
+      rpcConnection: rpcResult.rpcConnection, // Include RPC connection for SSH key access
       cleanup: () => {
         try {
           if (client && typeof (client as any).disconnect === 'function') {

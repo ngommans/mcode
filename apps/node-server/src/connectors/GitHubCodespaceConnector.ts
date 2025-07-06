@@ -208,7 +208,15 @@ export class GitHubCodespaceConnector {
       // Send connecting state first
       this.sendCodespaceState(ws, codespaceName, 'Connecting', `Establishing SSH connection via tunnel`);
 
-      const sshConnector = new Ssh2Connector();
+      // Get private key from RPC connection
+      const privateKey = result.rpcConnection?.getCurrentPrivateKey();
+      if (!privateKey) {
+        const errorMsg = 'No SSH private key available from RPC connection';
+        logger.error(errorMsg);
+        throw new Error(errorMsg);
+      }
+
+      const sshConnector = new Ssh2Connector(privateKey);
       const terminalConnection = await sshConnector.connectViaSSH(
         (data) => { onTerminalData(data); },
         (error) => {

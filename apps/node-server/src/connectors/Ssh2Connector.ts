@@ -3,36 +3,28 @@
  */
 
 import { Client, type ConnectConfig } from 'ssh2';
-import { readFileSync } from 'fs';
-import { homedir, platform } from 'os';
-import { join } from 'path';
 import type { TerminalConnection } from '@minimal-terminal-client/shared';
 import { TERMINAL_DEFAULTS } from '@minimal-terminal-client/shared';
 import { logger } from '../utils/logger.js';
 
 export class Ssh2Connector {
+  private privateKey: Buffer;
+
+  constructor(privateKey: Buffer | string) {
+    this.privateKey = typeof privateKey === 'string' ? Buffer.from(privateKey) : privateKey;
+    logger.info('SSH2Connector initialized with provided private key');
+  }
   async connectViaSSH(
     onTerminalData: (data: string) => void,
     onTerminalError: (error: string) => void,
     port: number
   ): Promise<TerminalConnection> {
     return new Promise((resolve, reject) => {
-      // TODO: HARDCODED - this needs to come in from somewhere else 
-      // gh cs ssh generates it on the fly and injects if unavailable: 
-      // https://github.com/cli/cli/pull/5752/files ( Automatically create ssh keys in gh cs ssh )
-      const userHomeDir = homedir();
-      const identityFilePath = platform() === "win32"
-        ? join(userHomeDir, '.ssh', 'id_ed25519')
-        : join(userHomeDir, '.ssh', 'id_ed25519');
-
-      logger.info(`Using SSH identity file: ${identityFilePath}`);
+      logger.info('Using ephemeral SSH private key for connection');
       
-      let privateKey: Buffer;
-      try {
-        privateKey = readFileSync(identityFilePath);
-      } catch (error) {
-        const message = `Failed to read SSH private key from ${identityFilePath}`;
-        logger.error(message, error as Error);
+      if (!this.privateKey) {
+        const message = 'No private key available for SSH connection';
+        logger.error(message);
         onTerminalError(message);
         return reject(new Error(message));
       }
@@ -81,7 +73,7 @@ export class Ssh2Connector {
         host: 'localhost',
         port: port,
         username: 'node',
-        privateKey: privateKey,
+        privateKey: this.privateKey,
         debug: (info: string) => {
           logger.debug('[SSH2 DEBUG]', { info });
         }

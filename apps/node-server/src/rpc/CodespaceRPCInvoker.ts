@@ -10,6 +10,7 @@ import protobuf from 'protobufjs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import type { TunnelRelayTunnelClient } from '@microsoft/dev-tunnels-connections';
+import { sshKeyManager, type SSHKeyPair } from '../services/SSHKeyManager.js';
 
 /**
  * Test if a port is accepting connections
@@ -70,6 +71,7 @@ interface NotifyCodespaceOfClientActivityResponse {
 
 export interface StartSSHServerOptions {
   userPublicKeyFile?: string;
+  sessionId: string;
 }
 
 export interface SSHServerResult {
@@ -87,6 +89,8 @@ export interface CodespaceRPCInvoker {
   // Connection state management
   markAsDisconnected(): void;
   markAsReconnected(): void;
+  // SSH key management
+  getCurrentPrivateKey(): string | null;
 }
 
 interface InvokerImpl {
@@ -103,6 +107,8 @@ interface InvokerImpl {
   disconnectTime?: number;
   gracePeriodTimeout?: NodeJS.Timeout;
   isPaused: boolean;
+  // SSH key management
+  currentKeyPair?: SSHKeyPair;
 }
 
 /**
@@ -738,6 +744,12 @@ async function cleanup(invoker: InvokerImpl): Promise<void> {
     invoker.grpcConnection = undefined;
   }
   
+  // Clean up SSH keys if they exist
+  if (invoker.currentKeyPair) {
+    sshKeyManager.destroySessionKeys(invoker.currentKeyPair.sessionId);
+    invoker.currentKeyPair = undefined;
+  }
+  
   if (invoker.localListener) {
     return new Promise((resolve) => {
       invoker.localListener!.close(() => resolve());
@@ -785,7 +797,8 @@ function createInvokerInterface(invoker: InvokerImpl): CodespaceRPCInvoker {
     },
     
     async startSSHServer(): Promise<SSHServerResult> {
-      return this.startSSHServerWithOptions({});
+      const sessionId = `ssh-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      return this.startSSHServerWithOptions({ sessionId });
     },
     
     async startSSHServerWithOptions(options: StartSSHServerOptions): Promise<SSHServerResult> {
@@ -819,44 +832,26 @@ function createInvokerInterface(invoker: InvokerImpl): CodespaceRPCInvoker {
         
         console.log('✅ gRPC service is responding, proceeding with SSH server start...');
         
-        // Read public key from file, environment, or use default
-        let userPublicKey = '';
+        // Generate ephemeral SSH key pair for this session
+        console.log(`🔑 Generating ephemeral SSH key pair for session: ${options.sessionId}`);
+        const keyPair = await sshKeyManager.generateSessionKeys(options.sessionId);
         
-        // Priority 1: File specified in options
-        if (options.userPublicKeyFile) {
-          try {
-            const fs = require('fs');
-            userPublicKey = fs.readFileSync(options.userPublicKeyFile, 'utf8').trim();
-            console.log(`📄 Loaded public key from file: ${options.userPublicKeyFile}`);
-          } catch (keyError) {
-            console.warn(`⚠️  Failed to read public key file ${options.userPublicKeyFile}:`, keyError);
-          }
-        }
+        // Store the key pair for later use in SSH connection
+        invoker.currentKeyPair = keyPair;
         
-        // Priority 2: Environment variable
-        if (!userPublicKey && process.env.USER_PUBLIC_KEY) {
-          userPublicKey = process.env.USER_PUBLIC_KEY.trim();
-          console.log(`📄 Loaded public key from environment variable USER_PUBLIC_KEY`);
-        }
-        
-        // Priority 3: Default test key (for development)
-        if (!userPublicKey) {
-          userPublicKey = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIZmZOeNBRAGwTI/+6ZgjBRAUiuDD4AemmILkQKP9tJc';
-          console.log(`📄 Using default test public key`);
-        }
-        
-        console.log(`🔑 Final public key: ${userPublicKey.substring(0, 50)}...`);
+        console.log(`🔑 Generated SSH key pair with fingerprint: ${keyPair.fingerprint}`);
+        console.log(`🔑 Public key: ${keyPair.publicKey.substring(0, 50)}...`);
         
         // Implement the real SSH server start call using proto definitions
         console.log('🚀 Making actual StartRemoteServerAsync gRPC call...');
         
         const startResult = await callStartRemoteServerAsync(invoker.grpcConnection, {
-          UserPublicKey: userPublicKey
+          UserPublicKey: keyPair.publicKey
         }, invoker.authToken);
         
         console.log('📋 SSH server start result:', startResult);
         console.log(`🔑 Auth token available: ${!!invoker.authToken}`);
-        console.log(`📄 Public key provided: ${!!userPublicKey}`);
+        console.log(`📄 Public key provided: ${!!keyPair.publicKey}`);
         
         if (startResult.Result) {
           const serverPort = parseInt(startResult.ServerPort, 10);
@@ -901,6 +896,10 @@ function createInvokerInterface(invoker: InvokerImpl): CodespaceRPCInvoker {
     
     markAsReconnected(): void {
       markAsReconnected(invoker);
+    },
+
+    getCurrentPrivateKey(): string | null {
+      return invoker.currentKeyPair?.privateKey || null;
     }
   };
 }
