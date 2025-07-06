@@ -17,7 +17,6 @@
     "lint:fix": "eslint src --ext .ts,.tsx --fix"
   },
   "dependencies": {
-    "@minimal-terminal-client/ui-components": "../packages/ui-components",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
     "postcss-import": "^16.1.1",

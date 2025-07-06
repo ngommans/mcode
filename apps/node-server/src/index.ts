@@ -23,7 +23,7 @@ process.on('unhandledRejection', (reason, promise) => {
   logger.error('Unhandled promise rejection', { reason, promise });
 });
 
-const DEFAULT_PORT = 3002;
+const DEFAULT_PORT = 3000;
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : DEFAULT_PORT;
 
 // Parse command line arguments for debug mode

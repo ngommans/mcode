@@ -10,6 +10,9 @@ export default defineConfig({
   plugins: [
     preact(),
   ],
+  esbuild: {
+    target: 'es2022',
+  },
   build: {
     outDir: 'dist',
     sourcemap: true

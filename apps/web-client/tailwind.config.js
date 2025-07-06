@@ -3,8 +3,6 @@ module.exports = {
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
-    "../../packages/ui-components/src/**/*.{js,ts,jsx,tsx}",
-    "../../packages/ui-components/src/styles.css",
   ],
   theme: {
     extend: {
@@ -27,5 +25,8 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [require("daisyui")],
+  daisyui: {
+    themes: ["dark"],
+  },
 }

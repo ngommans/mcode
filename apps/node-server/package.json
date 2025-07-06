@@ -21,7 +21,7 @@
     "lint:fix": "eslint src --ext .ts --fix"
   },
   "dependencies": {
-    "@grpc/grpc-js": "^1.12.2",
+    "@grpc/grpc-js": "^1.13.4",
     "@microsoft/dev-tunnels-connections": "^1.2.1",
     "@microsoft/dev-tunnels-contracts": "^1.2.1",
     "@microsoft/dev-tunnels-management": "^1.2.1",

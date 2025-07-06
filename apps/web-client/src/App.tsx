@@ -1,10 +1,14 @@
 import { h } from 'preact';
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
-import '@mcode/ui-base';
 import type { ServerMessage } from '@minimal-terminal-client/shared';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
+import { StatusBar } from './components/StatusBar';
+import { ConnectionModal } from './components/ConnectionModal';
+import { PortsDialog } from './components/PortsDialog';
+import { BranchDialog } from './components/BranchDialog';
+import { getAccessiblePortCount } from './utils/portUtils';
 
 type Status = 'connected' | 'disconnected' | 'connecting' | 'error';
 
@@ -12,13 +16,16 @@ export function App() {
   const [status, setStatus] = useState<Status>('disconnected');
   const [statusText, setStatusText] = useState('Disconnected');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPortsDialogOpen, setIsPortsDialogOpen] = useState(false);
+  const [isBranchDialogOpen, setIsBranchDialogOpen] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<string>('disconnected');
+  const [authenticationStatus, setAuthenticationStatus] = useState<string>('unauthenticated');
+  const [currentCodespace, setCurrentCodespace] = useState<any>(null);
   const [serverUrl, setServerUrl] = useState('ws://localhost:3002');
   const [githubToken, setGithubToken] = useState('');
   const [codespaces, setCodespaces] = useState([]);
   const [portInfo, setPortInfo] = useState({ ports: [], portCount: 0 });
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
-  const statusBarRef = useRef<HTMLElement>(null);
-  const modalRef = useRef<HTMLElement>(null);
   const terminalRef = useRef<HTMLDivElement>(null);
   const terminalInstance = useRef<Terminal | null>(null);
   const fitAddonInstance = useRef<FitAddon | null>(null);
@@ -38,16 +45,31 @@ export function App() {
     switch (message.type) {
       case 'authenticated':
         if (message.success) {
-          setStatusText('Authenticated. Listing codespaces...');
-          requestCodespaces();
+          setStatusText('Authenticated');
+          setAuthenticationStatus('authenticated');
+          // Auto-update status after 2 seconds
+          setTimeout(() => {
+            setStatusText('Listing available codespaces...');
+            requestCodespaces();
+          }, 2000);
         } else {
           setStatus('error');
           setStatusText('Authentication failed');
+          setAuthenticationStatus('failed');
         }
         break;
       case 'codespaces_list':
         console.log('App.tsx: Received codespaces_list', message.data);
+        // Log the first codespace to see available properties
+        if (message.data && message.data.length > 0) {
+          console.log('First codespace structure:', message.data[0]);
+          // Set the first codespace as current for branch dialog data
+          console.log('App: Setting currentCodespace to:', message.data[0]);
+          setCurrentCodespace(message.data[0]);
+        }
         setCodespaces(message.data || []);
+        const count = message.data?.length || 0;
+        setStatusText(`Codespaces found: ${count} - Open a codespace`);
         break;
       case 'output':
         if (terminalInstance.current && message.data) {
@@ -60,16 +82,44 @@ export function App() {
         break;
       case 'codespace_state':
         console.log('App.tsx: Received codespace_state', message);
-        setStatusText(`${message.codespace_name}: ${message.state}`);
+        const displayName = message.codespace_data?.display_name || 
+                           message.codespace_data?.repository?.full_name || 
+                           message.codespace_name?.replace(/-/g, ' ');
+        const stateText = message.state === 'Starting' ? 'Getting session ready...' :
+                         message.state === 'Unavailable' ? 'Codespace unavailable, retrying...' :
+                         message.state === 'Available' ? 'Codespace available, connecting...' :
+                         message.state === 'Connected' ? 'Ready' :
+                         `${displayName}: ${message.state}`;
+        
+        // Special handling for Connected state
         if (message.state === 'Connected') {
-          setIsModalOpen(false);
+          // Show "Ready" for 1 second, then close modal and show final status
+          setTimeout(() => {
+            const finalDisplayName = currentCodespace?.display_name || displayName;
+            setStatusText(`Codespaces: ${finalDisplayName}`);
+            setIsModalOpen(false);
+          }, 1000);
+        }
+        setStatusText(stateText);
+        // Store codespace data for branch dialog
+        if (message.codespace_data) {
+          setCurrentCodespace(message.codespace_data);
+        }
+        // Only close modal when fully connected (handled above with timeout)
+        if (message.state === 'Connected') {
+          setStatus('connected');
+          // Modal closing handled above with timeout
+        } else if (message.state === 'Starting' || message.state === 'Unavailable' || message.state === 'Available') {
+          setStatus('connecting');
         }
         break;
       case 'port_update':
         console.log('App.tsx: Received port_update', message);
+        console.log('App.tsx: Port data structure:', message.ports);
+        
         setPortInfo({
           ports: message.ports || [],
-          portCount: message.portCount || 0,
+          portCount: getAccessiblePortCount(message.ports || []),
         });
         break;
       default:
@@ -105,12 +155,17 @@ export function App() {
 
     newSocket.onopen = () => {
       setStatus('connected');
-      setStatusText('Connected to server. Ready to authenticate.');
+      setStatusText('Connected to server');
+      setConnectionStatus('connected');
       setReconnectAttempts(0);
       if (reconnectTimeout.current) {
         clearTimeout(reconnectTimeout.current);
         reconnectTimeout.current = null;
       }
+      // Auto-update status after 2 seconds
+      setTimeout(() => {
+        setStatusText('Authenticate with GitHub');
+      }, 2000);
     };
 
     newSocket.onmessage = (event) => {
@@ -136,16 +191,17 @@ export function App() {
   }, [handleMessage]);
 
   const handleReconnect = useCallback(() => {
-    if (reconnectAttempts < 5) {
-      const attempt = reconnectAttempts + 1;
-      setReconnectAttempts(attempt);
-      setStatusText(`Connection lost. Reconnecting... (Attempt ${attempt}/5)`);
+    const nextAttempt = reconnectAttempts + 1;
+    if (nextAttempt <= 5) {
+      setReconnectAttempts(nextAttempt);
+      setStatusText(`Connection lost. Reconnecting... (Attempt ${nextAttempt}/5)`);
       reconnectTimeout.current = window.setTimeout(() => {
         connect(serverUrl);
       }, 2000);
     } else {
       setStatus('disconnected');
       setStatusText('Disconnected. Click to reconnect.');
+      setConnectionStatus('disconnected');
       socket.current = null;
     }
   }, [reconnectAttempts, serverUrl, connect]);
@@ -169,6 +225,8 @@ export function App() {
     }
     setStatus('disconnected');
     setStatusText('Disconnected');
+    setConnectionStatus('disconnected');
+    setAuthenticationStatus('unauthenticated');
     socket.current = null;
     setCodespaces([]);
     setPortInfo({ ports: [], portCount: 0 });
@@ -259,82 +317,115 @@ export function App() {
     };
   }, []);
 
+  // Event handlers for the new Preact components
+  const handleOpenConnectionModal = useCallback(() => {
+    console.log('App: handleOpenConnectionModal called');
+    setIsModalOpen(true);
+  }, []);
+
+  // Auto-open connection modal when disconnected
   useEffect(() => {
-    if (modalRef.current) {
-      modalRef.current.isOpen = isModalOpen;
-
-      const handleConnect = (e: Event) => {
-        const customEvent = e as CustomEvent<{ serverUrl: string; githubToken: string }>;
-        console.log('App.tsx: Received connect event', customEvent.detail);
-        connect(customEvent.detail.serverUrl);
-        // DO NOT close modal here.
-      };
-
-      const handleAuthenticate = (e: Event) => {
-        const customEvent = e as CustomEvent<{ githubToken: string }>;
-        authenticate(customEvent.detail.githubToken);
-        // DO NOT close modal here.
-      };
-
-      const handleConnectCodespace = (e: Event) => {
-        const customEvent = e as CustomEvent<{ codespaceName: string }>;
-        connectToCodespace(customEvent.detail.codespaceName);
-        setIsModalOpen(false);
-      };
-
-      const handleClose = () => {
-        setIsModalOpen(false);
-      };
-
-      modalRef.current.addEventListener('connect', handleConnect);
-      modalRef.current.addEventListener('authenticate', handleAuthenticate);
-      modalRef.current.addEventListener('connect-codespace', handleConnectCodespace);
-      modalRef.current.addEventListener('close', handleClose);
-
-      return () => {
-        modalRef.current?.removeEventListener('connect', handleConnect);
-        modalRef.current?.removeEventListener('authenticate', handleAuthenticate);
-        modalRef.current?.removeEventListener('connect-codespace', handleConnectCodespace);
-        modalRef.current?.removeEventListener('close', handleClose);
-      };
+    if (status === 'disconnected' && !isModalOpen) {
+      setIsModalOpen(true);
     }
-  }, [isModalOpen, connect, authenticate, connectToCodespace]);
+  }, [status, isModalOpen]);
 
-  useEffect(() => {
-    const statusBarElement = statusBarRef.current;
-    const handleOpenModal = () => {
-      if (status === 'disconnected' && reconnectAttempts >= 5) {
-        connect(serverUrl);
-      } else {
-        setIsModalOpen(true);
-      }
-    };
-    const handleDisconnect = () => disconnect();
+  const handleDisconnect = useCallback(() => {
+    console.log('App: handleDisconnect called');
+    disconnect();
+  }, [disconnect]);
 
-    if (statusBarElement) {
-      statusBarElement.addEventListener('open-connection-modal', handleOpenModal);
-      statusBarElement.addEventListener('disconnect', handleDisconnect);
-      return () => {
-        statusBarElement.removeEventListener('open-connection-modal', handleOpenModal);
-        statusBarElement.removeEventListener('disconnect', handleDisconnect);
-      };
+  const handleModalConnect = useCallback((serverUrl: string, githubToken: string) => {
+    console.log('App: Received connect event', { serverUrl, githubToken });
+    setStatusText('Connecting to server...');
+    connect(serverUrl);
+    // DO NOT close modal here.
+  }, [connect]);
+
+  const handleModalAuthenticate = useCallback((githubToken: string) => {
+    setStatusText('Authenticating with GitHub...');
+    authenticate(githubToken);
+    // DO NOT close modal here.
+  }, [authenticate]);
+
+  const handleModalConnectCodespace = useCallback((codespaceName: string) => {
+    // Find the codespace to get its display name
+    const selectedCodespace = codespaces.find(cs => cs.name === codespaceName);
+    const displayName = selectedCodespace?.display_name || selectedCodespace?.repository?.full_name || codespaceName;
+    setStatusText(`Opening codespace ${displayName}...`);
+    connectToCodespace(codespaceName);
+    // Don't close modal - let codespace_state handler close it when Connected
+  }, [connectToCodespace, codespaces]);
+
+  const handleModalClose = useCallback(() => {
+    setIsModalOpen(false);
+  }, []);
+
+  const handleOpenPortsDialog = useCallback(() => {
+    console.log('App: handleOpenPortsDialog called');
+    console.log('App: Current ports dialog state:', isPortsDialogOpen);
+    console.log('App: Current port info:', portInfo);
+    setIsPortsDialogOpen(true);
+  }, [isPortsDialogOpen, portInfo]);
+
+  const handlePortsDialogClose = useCallback(() => {
+    setIsPortsDialogOpen(false);
+  }, []);
+
+  const handlePortsRefresh = useCallback(() => {
+    if (socket.current?.readyState === WebSocket.OPEN) {
+      socket.current.send(JSON.stringify({ type: 'refresh_ports' }));
     }
-  }, [disconnect, status, reconnectAttempts, serverUrl]);
+  }, []);
+
+  const handleOpenBranchDialog = useCallback(() => {
+    console.log('App: handleOpenBranchDialog called');
+    console.log('App: Current branch dialog state:', isBranchDialogOpen);
+    console.log('App: Current codespace data:', currentCodespace);
+    setIsBranchDialogOpen(true);
+  }, [isBranchDialogOpen, currentCodespace]);
+
+  const handleBranchDialogClose = useCallback(() => {
+    setIsBranchDialogOpen(false);
+  }, []);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#0f0f0f' }}>
-      <status-bar 
-        ref={statusBarRef}
+      <StatusBar 
         status={status} 
         statusText={statusText} 
         portCount={portInfo.portCount}
-      >
-      </status-bar>
-      <connection-modal-codespaces
-        ref={modalRef}
+        branchName={currentCodespace?.git_status?.ref || 'main'}
+        repositoryName={currentCodespace?.repository?.name}
+        isConnectedToCodespace={!!currentCodespace && status === 'connected'}
+        gitStatus={currentCodespace?.git_status}
+        onOpenConnectionModal={handleOpenConnectionModal}
+        onDisconnect={handleDisconnect}
+        onOpenPortsDialog={handleOpenPortsDialog}
+        onOpenBranchDialog={handleOpenBranchDialog}
+      />
+      <ConnectionModal
+        isOpen={isModalOpen}
         codespaces={codespaces}
-      >
-      </connection-modal-codespaces>
+        onConnect={handleModalConnect}
+        onAuthenticate={handleModalAuthenticate}
+        onConnectCodespace={handleModalConnectCodespace}
+        onClose={handleModalClose}
+        connectionStatus={connectionStatus}
+        authenticationStatus={authenticationStatus}
+        statusText={statusText}
+      />
+      <PortsDialog
+        isOpen={isPortsDialogOpen}
+        portInfo={portInfo}
+        onClose={handlePortsDialogClose}
+        onRefresh={handlePortsRefresh}
+      />
+      <BranchDialog
+        isOpen={isBranchDialogOpen}
+        branchInfo={currentCodespace}
+        onClose={handleBranchDialogClose}
+      />
       <div ref={terminalRef} id="terminal-container" style={{ flexGrow: 1, padding: '0 10px' }}></div>
     </div>
   );
