@@ -22,7 +22,7 @@ jobs:
         run: npm ci
 
       - name: Build packages
-        run: npm run build --workspaces --if-present
+        run: npm run build
 
       - name: Run unit/component tests with coverage
         run: npx vitest run --coverage
@@ -34,9 +34,10 @@ jobs:
         run: npx playwright test --reporter=dot
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          slug: ngommans/mcode
           flags: unit,e2e
           files: ./coverage/clover.xml
           fail_ci_if_error: true

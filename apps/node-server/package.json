@@ -25,6 +25,7 @@
     "@microsoft/dev-tunnels-connections": "^1.2.1",
     "@microsoft/dev-tunnels-contracts": "^1.2.1",
     "@microsoft/dev-tunnels-management": "^1.2.1",
+    "@minimal-terminal-client/shared": "file:../../packages/shared",
     "@types/protobufjs": "^6.0.0",
     "asynckit": "^0.4.0",
     "bcrypt-pbkdf": "^1.0.2",
