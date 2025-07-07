@@ -8,7 +8,7 @@
 ---
 
 ![Minimal Terminal Client Screenshot](https://raw.githubusercontent.com/ngommans/mcode/main/docs/mcode-v1-running.jpeg)
-![As PWA running Claude Code](https://raw.githubusercontent.com/ngommans/mcode/main/docs/PWA-Windows-min-term-client.png)
+![As PWA running Claude Code](https://raw.githubusercontent.com/ngommans/mcode/main/docs/PWA-Windows-min-term-client2.png)
 
 ## ✨ Features
 
