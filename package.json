@@ -9,8 +9,8 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
-    "build:prod": "npm run build:prod --workspaces --if-present",
+    "build": "npm run build --workspace=packages/shared && npm run build --workspace=packages/tunnel-client && npm run build --workspace=apps/node-server && npm run build --workspace=apps/web-client",
+    "build:prod": "npm run build:prod --workspace=packages/shared && npm run build:prod --workspace=packages/tunnel-client && npm run build:prod --workspace=apps/node-server && npm run build:prod --workspace=apps/web-client",
     "dev": "concurrently \"npm run dev --workspace=apps/web-client\" \"npm run dev --workspace=apps/node-server\"",
     "dev-web:debug": "npm run dev --workspace=apps/web-client -- --debug",
     "start": "npm run start --workspace=apps/node-server",
