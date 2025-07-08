@@ -2,7 +2,7 @@
  * Logging utility
  */
 
-import type { LogLevel, LogEntry } from '@minimal-terminal-client/shared';
+import type { LogLevel, LogEntry } from 'tcode-shared';
 
 class Logger {
   private logLevel: LogLevel;

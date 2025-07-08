@@ -1,7 +1,7 @@
 {
-  "name": "@minimal-terminal-client/web-client",
+  "name": "tcode-web-client",
   "version": "1.0.0",
-  "description": "Progressive Web App client for minimal terminal client",
+  "description": "Progressive Web App client for Terminal Code (tcode)",
   "type": "module",
   "scripts": {
     "build": "vite build",

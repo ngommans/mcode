@@ -5,7 +5,7 @@
 
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import type { WebSocketMessage, ServerMessage } from '@minimal-terminal-client/shared';
+import type { WebSocketMessage, ServerMessage } from 'tcode-shared';
 
 interface PortInfo {
   ports: Array<{

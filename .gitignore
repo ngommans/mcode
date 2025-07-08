@@ -13,4 +13,5 @@ apps/web-client/dist
 packages/server/dist
 packages/tunnel-client/dist
 packages/shared/dist
-packages/ui-components/dist
+packages/npx-server/dist
+packages/npx-server/static

@@ -1,6 +1,6 @@
 import { h } from 'preact';
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
-import type { ServerMessage } from '@minimal-terminal-client/shared';
+import type { ServerMessage } from 'tcode-shared';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';

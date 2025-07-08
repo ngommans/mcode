@@ -1,7 +1,7 @@
 {
-  "name": "@minimal-terminal-client/shared",
+  "name": "tcode-shared",
   "version": "1.0.0",
-  "description": "Shared types and utilities for minimal terminal client",
+  "description": "Shared types and utilities for Terminal Code (tcode)",
   "type": "module",
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",

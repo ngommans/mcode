@@ -5,7 +5,7 @@
 
 import { TunnelRelayTunnelClient } from '@microsoft/dev-tunnels-connections';
 import { TunnelManagementHttpClient } from '@microsoft/dev-tunnels-management';
-import type { TunnelProperties } from '@minimal-terminal-client/shared';
+import type { TunnelProperties } from 'tcode-shared';
 import TunnelPortService from './TunnelPortService.js';
 import TraceListenerService from './TraceListenerService.js';
 import { createInvoker } from '../rpc/CodespaceRPCInvoker.js';

@@ -10,8 +10,8 @@ import type {
   TerminalConnection,
   PortInformation,
   TunnelConnectionResult
-} from '@minimal-terminal-client/shared';
-import { GITHUB_API } from '@minimal-terminal-client/shared';
+} from 'tcode-shared';
+import { GITHUB_API } from 'tcode-shared';
 import { forwardSshPortOverTunnel, getPortInformation } from '../tunnel/TunnelModule.js';
 import { Ssh2Connector } from './Ssh2Connector.js';
 import { logger } from '../utils/logger.js';

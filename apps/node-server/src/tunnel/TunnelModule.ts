@@ -6,7 +6,7 @@
 import { TunnelRelayTunnelClient } from '@microsoft/dev-tunnels-connections';
 import { ManagementApiVersions, TunnelManagementHttpClient } from '@microsoft/dev-tunnels-management';
 import { TunnelAccessScopes, TunnelProtocol } from '@microsoft/dev-tunnels-contracts';
-import type { TunnelProperties, TunnelConnectionResult, PortInformation } from '@minimal-terminal-client/shared';
+import type { TunnelProperties, TunnelConnectionResult, PortInformation } from 'tcode-shared';
 import * as grpc from '@grpc/grpc-js';
 import * as net from 'net';
 import { createInvoker, type CodespaceRPCInvoker } from '../rpc/CodespaceRPCInvoker.js';

@@ -1,5 +1,5 @@
 {
-  "name": "@minimal-terminal-client/tunnel-client",
+  "name": "tcode-tunnel-client",
   "version": "1.0.0",
   "description": "Tunnel client for Microsoft Dev Tunnels integration",
   "type": "module",

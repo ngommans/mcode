@@ -1,7 +1,7 @@
 {
-  "name": "@minimal-terminal-client/node-server",
+  "name": "tcode-server",
   "version": "1.0.0",
-  "description": "Node.js server with tunnel management for minimal terminal client",
+  "description": "Node.js server with tunnel management for Terminal Code (tcode)",
   "type": "module",
   "main": "./dist/index.js",
   "scripts": {
@@ -25,7 +25,7 @@
     "@microsoft/dev-tunnels-connections": "^1.2.1",
     "@microsoft/dev-tunnels-contracts": "^1.2.1",
     "@microsoft/dev-tunnels-management": "^1.2.1",
-    "@minimal-terminal-client/shared": "file:../../packages/shared",
+    "tcode-shared": "file:../../packages/shared",
     "@types/protobufjs": "^6.0.0",
     "asynckit": "^0.4.0",
     "bcrypt-pbkdf": "^1.0.2",

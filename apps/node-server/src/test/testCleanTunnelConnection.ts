@@ -4,7 +4,7 @@
  */
 
 import { connectToTunnel } from '../tunnel/TunnelModuleClean.js';
-import type { TunnelProperties, TunnelConnectionResult } from '@minimal-terminal-client/shared';
+import type { TunnelProperties, TunnelConnectionResult } from 'tcode-shared';
 
 async function testCleanTunnelConnection(): Promise<void> {
   console.log('🧪 === TESTING CLEAN TUNNEL CONNECTION ARCHITECTURE ===');

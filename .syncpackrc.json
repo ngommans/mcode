@@ -2,7 +2,7 @@
   "versionGroups": [
     {
       "label": "Use workspace protocol for local packages",
-      "dependencies": ["@minimal-terminal-client/*"],
+      "dependencies": ["tcode/*"],
       "dependencyTypes": ["dev", "peer", "prod"],
       "pinVersion": "workspace:*"
     },

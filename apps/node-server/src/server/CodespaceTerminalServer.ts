@@ -7,8 +7,8 @@ import type {
   ServerMessage, 
   WebSocketMessage,
   TerminalConnection
-} from '@minimal-terminal-client/shared';
-import { MESSAGE_TYPES, isWebSocketMessage } from '@minimal-terminal-client/shared';
+} from 'tcode-shared';
+import { MESSAGE_TYPES, isWebSocketMessage } from 'tcode-shared';
 import { GitHubCodespaceConnector } from '../connectors/GitHubCodespaceConnector.js';
 import { logger } from '../utils/logger.js';
 

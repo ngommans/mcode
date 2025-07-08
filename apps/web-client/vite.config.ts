@@ -17,8 +17,8 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}']
       },
       manifest: {
-        name: 'Minimal Terminal Client',
-        short_name: 'mcode',
+        name: 'Terminal Code',
+        short_name: 'tcode',
         description: 'A modern, lightweight terminal client for GitHub Codespaces.',
         theme_color: '#1e1e1e',
         background_color: '#1e1e1e',
