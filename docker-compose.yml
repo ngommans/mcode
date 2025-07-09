@@ -1,0 +1,23 @@
+services:
+  # Development service (builds from local source)
+  tcode:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=development
+      - HEADLESS=true
+      # Pass through GitHub token if provided
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+    volumes:
+      # Mount source for live development
+      - ./packages/standalone/src:/app/packages/standalone/src:ro
+      - ./packages/shared/src:/app/packages/shared/src:ro
+      - ./packages/server/src:/app/packages/server/src:ro
+    restart: unless-stopped
+    # Optional: Load from .env.local if it exists
+    env_file:
+      - .env.local

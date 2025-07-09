@@ -9,6 +9,7 @@ import { ConnectionModal } from './components/ConnectionModal';
 import { PortsDialog } from './components/PortsDialog';
 import { BranchDialog } from './components/BranchDialog';
 import { getAccessiblePortCount } from './utils/portUtils';
+import { getDefaultWebSocketUrl } from './utils/websocket';
 
 type Status = 'connected' | 'disconnected' | 'connecting' | 'error';
 
@@ -21,7 +22,7 @@ export function App() {
   const [connectionStatus, setConnectionStatus] = useState<string>('disconnected');
   const [authenticationStatus, setAuthenticationStatus] = useState<string>('unauthenticated');
   const [currentCodespace, setCurrentCodespace] = useState<any>(null);
-  const [serverUrl, setServerUrl] = useState('ws://localhost:3002');
+  const [serverUrl, setServerUrl] = useState(getDefaultWebSocketUrl());
   const [githubToken, setGithubToken] = useState('');
   const [codespaces, setCodespaces] = useState([]);
   const [portInfo, setPortInfo] = useState({ ports: [], portCount: 0 });
@@ -31,6 +32,7 @@ export function App() {
   const fitAddonInstance = useRef<FitAddon | null>(null);
   const socket = useRef<WebSocket | null>(null);
   const reconnectTimeout = useRef<number | null>(null);
+  const isManualDisconnect = useRef<boolean>(false);
 
   const requestCodespaces = useCallback(() => {
     if (socket.current?.readyState !== WebSocket.OPEN) {
@@ -142,11 +144,41 @@ export function App() {
     socket.current.send(JSON.stringify({ type: 'authenticate', token }));
   }, []);
 
+  const handleReconnect = useCallback(() => {
+    // Don't reconnect if it was a manual disconnect
+    if (isManualDisconnect.current) {
+      isManualDisconnect.current = false;
+      return;
+    }
+    
+    setReconnectAttempts(currentAttempts => {
+      const nextAttempt = currentAttempts + 1;
+      if (nextAttempt <= 5) {
+        setStatusText(`Connection lost. Reconnecting... (Attempt ${nextAttempt}/5)`);
+        reconnectTimeout.current = window.setTimeout(() => {
+          // Use serverUrl from state instead of dependency to avoid circular reference
+          const currentUrl = serverUrl;
+          connect(currentUrl);
+        }, 2000);
+        return nextAttempt;
+      } else {
+        setStatus('disconnected');
+        setStatusText('Disconnected. Click to reconnect.');
+        setConnectionStatus('disconnected');
+        socket.current = null;
+        return currentAttempts; // Don't change the attempts count
+      }
+    });
+  }, [serverUrl]); // Remove connect dependency to break circular reference
+
   const connect = useCallback((serverUrlToConnect: string) => {
     if (socket.current) {
       socket.current.close();
     }
 
+    // Reset manual disconnect flag when starting a new connection
+    isManualDisconnect.current = false;
+    
     setServerUrl(serverUrlToConnect);
     setStatus('connecting');
     setStatusText(`Connecting to ${serverUrlToConnect}...`);
@@ -182,29 +214,15 @@ export function App() {
     };
 
     newSocket.onerror = (error) => {
+      console.error('WebSocket error:', error);
       setStatus('error');
       setStatusText('Connection Error');
-      console.error('WebSocket error:', error);
+      // Also trigger reconnection on error
+      handleReconnect();
     };
 
     socket.current = newSocket;
-  }, [handleMessage]);
-
-  const handleReconnect = useCallback(() => {
-    const nextAttempt = reconnectAttempts + 1;
-    if (nextAttempt <= 5) {
-      setReconnectAttempts(nextAttempt);
-      setStatusText(`Connection lost. Reconnecting... (Attempt ${nextAttempt}/5)`);
-      reconnectTimeout.current = window.setTimeout(() => {
-        connect(serverUrl);
-      }, 2000);
-    } else {
-      setStatus('disconnected');
-      setStatusText('Disconnected. Click to reconnect.');
-      setConnectionStatus('disconnected');
-      socket.current = null;
-    }
-  }, [reconnectAttempts, serverUrl, connect]);
+  }, [handleMessage, handleReconnect]);
 
   const connectToCodespace = useCallback((codespaceName: string) => {
     if (socket.current?.readyState !== WebSocket.OPEN) {
@@ -215,6 +233,9 @@ export function App() {
   }, []);
 
   const disconnect = useCallback(() => {
+    // Set flag to prevent reconnection
+    isManualDisconnect.current = true;
+    
     if (reconnectTimeout.current) {
       clearTimeout(reconnectTimeout.current);
       reconnectTimeout.current = null;
@@ -230,7 +251,7 @@ export function App() {
     socket.current = null;
     setCodespaces([]);
     setPortInfo({ ports: [], portCount: 0 });
-    setReconnectAttempts(5); // Prevent reconnection after manual disconnect
+    setReconnectAttempts(0); // Reset reconnect attempts
   }, []);
 
   useEffect(() => {

@@ -1,9 +1,20 @@
 {
   "name": "tcode-server",
-  "version": "1.0.0",
-  "description": "Node.js server with tunnel management for Terminal Code (tcode)",
+  "version": "0.1.0",
+  "description": "Terminal Code Server - WebSocket server for GitHub Codespaces",
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "bin": {
+    "tcode-server": "dist/src/index.js"
+  },
   "scripts": {
     "build": "tsc",
     "build:prod": "tsc --project tsconfig.json",
@@ -25,7 +36,6 @@
     "@microsoft/dev-tunnels-connections": "^1.2.1",
     "@microsoft/dev-tunnels-contracts": "^1.2.1",
     "@microsoft/dev-tunnels-management": "^1.2.1",
-    "tcode-shared": "file:../../packages/shared",
     "@types/protobufjs": "^6.0.0",
     "asynckit": "^0.4.0",
     "bcrypt-pbkdf": "^1.0.2",
@@ -35,6 +45,7 @@
     "node-pty": "^1.0.0",
     "protobufjs": "^7.5.3",
     "ssh2": "^1.16.0",
+    "tcode-shared": "^0.1.0",
     "typedarray-to-buffer": "^4.0.0",
     "vscode-jsonrpc": "^8.2.1",
     "websocket": "^1.0.35",
@@ -42,16 +53,36 @@
   },
   "devDependencies": {
     "@types/express": "^4.17.23",
-    "@types/jest": "^29.5.14",
     "@types/ssh2": "^1.15.5",
     "@types/ws": "^8.18.1",
-    "jest": "^29.7.0",
     "nodemon": "^3.1.10",
     "rimraf": "^5.0.10",
-    "ts-jest": "^29.4.0",
     "tsx": "^4.20.3"
   },
   "engines": {
     "node": ">=22.12.0"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "keywords": [
+    "github-codespaces",
+    "dev-tunnels",
+    "terminal-server",
+    "codespace-client",
+    "remote-development",
+    "vscode",
+    "code-server"
+  ],
+  "homepage": "https://github.com/ngommans/tcode",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ngommans/tcode.git"
+  },
+  "license": "MIT",
+  "author": "Nick Gommans",
+  "publishConfig": {
+    "access": "public"
   }
 }

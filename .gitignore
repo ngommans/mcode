@@ -1,17 +1,21 @@
 # Dependencies
 /node_modules
+apps/**/node_modules
+packages/**/node_modules
 
 # Environment variables
 .env
+.env.local
 
-apps/node-server/node_modules
-apps/web-client/node_modules
-packages/server/node_modules
-packages/tunnel-client/node_modules
-apps/node-server/dist
-apps/web-client/dist
-packages/server/dist
-packages/tunnel-client/dist
-packages/shared/dist
-packages/npx-server/dist
-packages/npx-server/static
+# Tests
+playwright-report
+test-results
+
+# Distibutables
+apps/**/dist
+packages/**/dist
+packages/standalone/static
+
+# Generated PWA icons and favicon (copied from docs/)
+apps/web-client/public/tcode*.png
+apps/web-client/public/favicon.ico

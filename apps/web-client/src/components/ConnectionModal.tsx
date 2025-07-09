@@ -1,5 +1,6 @@
 import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
+import { getDefaultWebSocketUrl } from '../utils/websocket';
 
 interface Codespace {
   name: string;
@@ -33,7 +34,7 @@ export function ConnectionModal({
   authenticationStatus,
   statusText
 }: ConnectionModalProps) {
-  const [serverUrl, setServerUrl] = useState('ws://localhost:3002');
+  const [serverUrl, setServerUrl] = useState(getDefaultWebSocketUrl());
   const [githubToken, setGithubToken] = useState('');
   const [isServerUrlProvided, setIsServerUrlProvided] = useState(true);
 

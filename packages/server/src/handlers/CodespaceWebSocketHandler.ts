@@ -1,8 +1,9 @@
 /**
- * WebSocket server for handling codespace terminal connections
+ * WebSocket handler for codespace terminal connections
+ * Extracted from CodespaceTerminalServer for reusability
  */
 
-import WebSocket, { WebSocketServer } from 'ws';
+import WebSocket from 'ws';
 import type { 
   ServerMessage, 
   WebSocketMessage,
@@ -12,7 +13,7 @@ import { MESSAGE_TYPES, isWebSocketMessage } from 'tcode-shared';
 import { GitHubCodespaceConnector } from '../connectors/GitHubCodespaceConnector.js';
 import { logger } from '../utils/logger.js';
 
-interface ExtendedWebSocket extends WebSocket {
+export interface ExtendedWebSocket extends WebSocket {
   connector?: GitHubCodespaceConnector;
   terminalConnection?: TerminalConnection;
   codespaceName?: string;
@@ -24,38 +25,24 @@ interface ExtendedWebSocket extends WebSocket {
   rpcConnection?: any; // CodespaceRPCInvoker
 }
 
-interface ServerOptions {
+export interface ServerOptions {
   debugMode?: boolean;
 }
 
-export class CodespaceTerminalServer {
-  private wss: WebSocketServer;
-  private port: number;
+export class CodespaceWebSocketHandler {
   private options: ServerOptions;
 
-  constructor(port: number, options: ServerOptions = {}) {
-    this.port = port;
+  constructor(options: ServerOptions = {}) {
     this.options = options;
-    this.wss = new WebSocketServer({ port: this.port });
-    this.init();
   }
 
-  private init(): void {
-    logger.info(`Codespace Terminal Server starting on port ${this.port}`);
-
-    this.wss.on('connection', (ws: ExtendedWebSocket) => {
-      logger.info('New client connected');
-      this.handleConnection(ws);
-    });
-
-    this.wss.on('error', (error) => {
-      logger.error('WebSocket server error', error);
-    });
-
-    logger.info(`Codespace Terminal Server started on port ${this.port}`);
-  }
-
-  private handleConnection(ws: ExtendedWebSocket): void {
+  /**
+   * Handle new WebSocket connection
+   * This method is designed to be used as a callback for WebSocket server
+   */
+  handleConnection = (ws: ExtendedWebSocket): void => {
+    logger.info('New client connected');
+    
     // Initialize connection state
     ws.connector = undefined;
     ws.terminalConnection = undefined;
@@ -87,7 +74,7 @@ export class CodespaceTerminalServer {
       logger.error('WebSocket connection error', error);
       await this.cleanup(ws);
     });
-  }
+  };
 
   private async handleMessage(ws: ExtendedWebSocket, message: WebSocketMessage): Promise<void> {
     if (!isWebSocketMessage(message)) {
@@ -280,10 +267,5 @@ export class CodespaceTerminalServer {
       type: MESSAGE_TYPES.ERROR,
       message: error
     });
-  }
-
-  close(): void {
-    logger.info('Closing WebSocket server');
-    this.wss.close();
   }
 }

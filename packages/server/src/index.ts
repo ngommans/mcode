@@ -6,6 +6,16 @@ import { config } from 'dotenv';
 import { CodespaceTerminalServer } from './server/CodespaceTerminalServer.js';
 import { logger } from './utils/logger.js';
 
+// Export for use by other packages (like npx-server)
+export { CodespaceWebSocketHandler, type ServerOptions, type ExtendedWebSocket } from './handlers/CodespaceWebSocketHandler.js';
+export { CodespaceTerminalServer } from './server/CodespaceTerminalServer.js';
+
+// Export main function for programmatic use
+export { main as startServer };
+
+// Default export for npx usage
+export default main;
+
 // Load environment variables
 config();
 

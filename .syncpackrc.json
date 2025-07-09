@@ -18,8 +18,8 @@
       "dependencyTypes": ["dev"]
     },
     {
-      "label": "Standardize testing ecosystem", 
-      "dependencies": ["jest", "@types/jest", "ts-jest"],
+      "label": "Standardize testing ecosystem",
+      "dependencies": ["vitest", "@vitest/*", "@playwright/test"],
       "dependencyTypes": ["dev"]
     },
     {

@@ -1,0 +1,58 @@
+{
+  "name": "tcode",
+  "version": "0.1.0",
+  "description": "Terminal Code (tcode) - Web terminal client for GitHub Codespaces - this is a standalone package suitable for local or personal/development container based deployments",
+  "type": "module",
+  "bin": {
+    "tcode": "dist/server.js"
+  },
+  "main": "./dist/server.js",
+  "files": [
+    "dist/",
+    "static/"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "copy:static": "cp -r ../../apps/web-client/dist/* ./static/ 2>/dev/null || mkdir -p ./static && cp -r ../../apps/web-client/dist/* ./static/",
+    "prebuild": "npm run copy:static",
+    "start": "dotenv -e ../../.env -- node dist/server.js",
+    "dev": "dotenv -e ../../.env -- tsx watch src/server.ts"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "open": "^10.1.2",
+    "ws": "^8.18.3",
+    "tcode-shared": "^0.1.0",
+    "tcode-server": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.23",
+    "@types/node": "^20.19.6",
+    "@types/ws": "^8.18.1",
+    "dotenv-cli": "^8.0.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "terminal-client",
+    "web-terminal",
+    "github-codespaces",
+    "browser-terminal",
+    "remote-terminal",
+    "vscode",
+    "mobile-ide"
+  ],
+  "homepage": "https://github.com/ngommans/tcode",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ngommans/tcode.git"
+  },
+  "license": "MIT",
+  "author": "Nick Gommans",
+  "publishConfig": {
+    "access": "public"
+  }
+}

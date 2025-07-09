@@ -6,6 +6,7 @@
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import type { WebSocketMessage, ServerMessage } from 'tcode-shared';
+import { getDefaultWebSocketUrl } from '../utils/websocket';
 
 interface PortInfo {
   ports: Array<{
@@ -93,7 +94,7 @@ export class MinimalTerminalClient {
           
           <div class="flex flex-col gap-sm md:flex-col md:items-stretch">
             <label class="text-white text-sm font-medium mb-1">1. Connect to Server</label>
-            <input type="text" class="p-sm bg-vscodeInfoBg border border-vscodeInfoBorder rounded-md text-white text-sm font-inherit focus:outline-none focus:border-vscodeAccent disabled:opacity-50 disabled:cursor-not-allowed" id="serverUrl" value="ws://localhost:3002" placeholder="Server URL">
+            <input type="text" class="p-sm bg-vscodeInfoBg border border-vscodeInfoBorder rounded-md text-white text-sm font-inherit focus:outline-none focus:border-vscodeAccent disabled:opacity-50 disabled:cursor-not-allowed" id="serverUrl" value="${getDefaultWebSocketUrl()}" placeholder="Server URL">
             <button class="px-lg py-sm border-none rounded-md cursor-pointer text-sm min-w-[120px] text-center transition-all duration-200 ease-in-out bg-vscodeAccent text-white hover:not(:disabled):bg-vscodeAccentDark disabled:opacity-50 disabled:cursor-not-allowed md:min-w-0" id="connectServerButton">Connect</button>
           </div>
 

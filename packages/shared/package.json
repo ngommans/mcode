@@ -1,6 +1,6 @@
 {
   "name": "tcode-shared",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Shared types and utilities for Terminal Code (tcode)",
   "type": "module",
   "main": "./dist/src/index.js",
@@ -28,5 +28,18 @@
   "files": [
     "dist",
     "src"
-  ]
+  ],
+  "keywords": [
+    "tcode"
+  ],
+  "homepage": "https://github.com/ngommans/tcode",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ngommans/tcode.git"
+  },
+  "license": "MIT",
+  "author": "Nick Gommans",
+  "publishConfig": {
+    "access": "public"
+  }
 }

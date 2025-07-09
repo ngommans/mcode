@@ -9,12 +9,14 @@ import type {
   TunnelProperties, 
   TerminalConnection,
   PortInformation,
-  TunnelConnectionResult
+  TunnelConnectionResult,
+  CodespaceState
 } from 'tcode-shared';
 import { GITHUB_API } from 'tcode-shared';
 import { forwardSshPortOverTunnel, getPortInformation } from '../tunnel/TunnelModule.js';
 import { Ssh2Connector } from './Ssh2Connector.js';
 import { logger } from '../utils/logger.js';
+import type { CodespaceWebSocketHandler } from '../handlers/CodespaceWebSocketHandler.js';
 
 interface ConnectorOptions {
   debugMode?: boolean;
@@ -23,13 +25,13 @@ interface ConnectorOptions {
 export class GitHubCodespaceConnector {
   private accessToken: string;
   private ws: WebSocket;
-  private server: any; // CodespaceTerminalServer
+  private handler: CodespaceWebSocketHandler;
   private options: ConnectorOptions;
 
-  constructor(accessToken: string, ws: WebSocket, server: any, options: ConnectorOptions = {}) {
+  constructor(accessToken: string, ws: WebSocket, handler: CodespaceWebSocketHandler, options: ConnectorOptions = {}) {
     this.accessToken = accessToken;
     this.ws = ws;
-    this.server = server;
+    this.handler = handler;
     this.options = options;
     logger.debug('GitHubCodespaceConnector initialized', {
       tokenSuffix: accessToken ? '*****' + accessToken.substring(accessToken.length - 4) : 'None',
@@ -206,7 +208,7 @@ export class GitHubCodespaceConnector {
       logger.info('Connecting to local port', { localPort: result.localPort });
 
       // Send connecting state first
-      this.sendCodespaceState(ws, codespaceName, 'Connecting', `Establishing SSH connection via tunnel`);
+      this.sendCodespaceState(ws, codespaceName, 'Starting', `Establishing SSH connection via tunnel`);
 
       // Get private key from RPC connection
       const privateKey = result.rpcConnection?.getCurrentPrivateKey();
@@ -222,7 +224,7 @@ export class GitHubCodespaceConnector {
         (error) => {
           logger.error('SSH Terminal Error', { error });
           if (ws && ws.readyState === WebSocket.OPEN) {
-            this.server.sendError(ws, error.toString());
+            this.handler.sendError(ws, error.toString());
             this.sendCodespaceState(ws, codespaceName, 'Shutdown');
           }
         },
@@ -248,11 +250,11 @@ export class GitHubCodespaceConnector {
   sendCodespaceState(
     _ws: WebSocket,
     codespaceName: string,
-    state: string,
+    state: CodespaceState,
     repositoryFullName?: string
   ): void {
-    if (this.server && this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.server.sendMessage(this.ws, {
+    if (this.handler && this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.handler.sendMessage(this.ws, {
         type: 'codespace_state',
         codespace_name: codespaceName,
         state: state,
@@ -262,7 +264,7 @@ export class GitHubCodespaceConnector {
   }
 
   sendPortUpdate(_ws: WebSocket, portInfo: any): void {
-    if (this.server && this.ws && this.ws.readyState === WebSocket.OPEN) {
+    if (this.handler && this.ws && this.ws.readyState === WebSocket.OPEN) {
       const userPortsWithUrls = portInfo.userPorts.map((port: any) => ({
         portNumber: port.portNumber,
         protocol: port.protocol,
@@ -271,7 +273,7 @@ export class GitHubCodespaceConnector {
         isUserPort: true
       }));
 
-      this.server.sendMessage(this.ws, {
+      this.handler.sendMessage(this.ws, {
         type: 'port_update',
         portCount: portInfo.userPorts.length,
         ports: userPortsWithUrls,

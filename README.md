@@ -1,14 +1,14 @@
-# Minimal Terminal Client
+# Terminal Code (tcode)
 
 > A clean and mobile friendly, lightweight terminal focused front-end connecting to GitHub Codespaces (any dev container in future) aiming for a VS Code familiar UI look and feel where possible.
 
-[![CI](https://github.com/ngommans/mcode/actions/workflows/ci.yml/badge.svg)](https://github.com/ngommans/mcode/actions/workflows/ci.yml)
+[![CI](https://github.com/ngommans/tcode/actions/workflows/ci.yml/badge.svg)](https://github.com/ngommans/tcode/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
 
-![Minimal Terminal Client Screenshot](https://raw.githubusercontent.com/ngommans/mcode/main/docs/mcode-v1-running.jpeg)
-![As PWA running Claude Code](https://raw.githubusercontent.com/ngommans/mcode/main/docs/PWA-Windows-min-term-client2.png)
+![Terminal Code Screenshot](https://raw.githubusercontent.com/ngommans/tcode/main/docs/tcode-v1-running.jpeg)
+![As PWA running Claude Code](https://raw.githubusercontent.com/ngommans/tcode/main/docs/PWA-Windows-min-term-client2.png)
 
 ## ✨ Features
 
@@ -20,22 +20,100 @@
 
 ## Install
 
+### Option 1: NPM Package (Recommended)
+
+```bash
+# Install globally
+npm install -g tcode
+
+# Or run directly
+npx tcode
+```
+
+### Option 2: From Source
+
 Clone the repository and install the dependencies:
 
 ```bash
-git clone https://github.com/ngommans/mcode.git
-cd mcode
+git clone https://github.com/ngommans/tcode.git
+cd tcode
 npm ci
 ```
 
 ## Usage
 
+### Quick Start (NPM)
+
+```bash
+# Run directly
+npx tcode
+
+# Or if installed globally
+tcode
+```
+### Build/Run Locally
+
+1.  **Build the application:**
+    ```bash
+    npm run build
+    ```
+2.  **Run the standalone:**
+    ```bash
+    npm run start:standalone
+
+3.  **Open the client** in your browser at `http://localhost:3000`.
+4.  The connection dialog will open automatically. Enter a GitHub Token with `codespace` scope to connect.
+    ```
+
+### Local Development
+
 1.  **Start the application:**
     ```bash
     npm run dev
     ```
-2.  **Open the client** in your browser at `http://localhost:8080`.
+2.  **Open the client** in your browser at `http://localhost:8080` - note the backend defaults to ws://localhost:3000 when running both in development mode.
 3.  The connection dialog will open automatically. Enter a GitHub Token with `codespace` scope to connect.
+
+### Docker
+
+#### Production (Using published npm package)
+
+```bash
+# Build and run production image
+docker build -t tcode .
+docker run -p 3000:3000 tcode
+
+# Or run directly from GitHub Container Registry
+docker run -p 3000:3000 ghcr.io/ngommans/tcode:latest
+```
+
+#### Development (Building from source)
+
+```bash
+# Using docker-compose (recommended for development)
+docker-compose up
+
+# With custom port
+PORT=8080 docker-compose up
+
+# With GitHub token (optional - you can also enter it in the web UI)
+GITHUB_TOKEN=ghp_xxx docker-compose up
+
+# Using .env.local file
+echo "GITHUB_TOKEN=ghp_xxx" > .env.local
+docker-compose up
+
+# Build development image manually
+docker build -f Dockerfile.dev -t tcode-dev .
+docker run -p 3000:3000 tcode-dev
+```
+
+#### Environment Variables
+
+- `PORT` - Server port (default: 3000)
+- `GITHUB_TOKEN` - GitHub personal access token with `codespace` scope (optional, can be entered via web UI)
+- `NODE_ENV` - Environment mode (development/production)
+- `HEADLESS` - Disable auto-opening browser (useful for Docker)
 
 ## Contributing
 
