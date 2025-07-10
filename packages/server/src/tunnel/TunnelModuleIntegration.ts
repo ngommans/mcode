@@ -10,6 +10,8 @@ import TunnelPortService from './TunnelPortService.js';
 import TraceListenerService from './TraceListenerService.js';
 import { createInvoker } from '../rpc/CodespaceRPCInvoker.js';
 
+import { logger } from '../utils/logger';
+
 export interface CleanTunnelConnectionOptions {
   enableDebugTracing?: boolean;
   portDetectionTimeoutMs?: number;
@@ -32,7 +34,7 @@ export async function establishCleanTunnelConnection(
   traceService?: TraceListenerService;
 }> {
   
-  console.log('🚀 === CLEAN TUNNEL CONNECTION START ===');
+  logger.info('🚀 === CLEAN TUNNEL CONNECTION START ===');
   
   // Initialize the port service with clean configuration
   const portService = new TunnelPortService({
@@ -43,48 +45,48 @@ export async function establishCleanTunnelConnection(
 
   try {
     // Step 1: Initialize port service (sets up API-based detection)
-    console.log('📡 Initializing port forwarding manager...');
+    logger.info('📡 Initializing port forwarding manager...');
     await portService.initialize(tunnelClient, tunnelManager, tunnelProperties);
     
     // Step 2: Detect RPC port using clean API-first approach
-    console.log('🔍 Detecting RPC port (16634) using API methods...');
+    logger.info('🔍 Detecting RPC port (16634) using API methods...');
     const rpcDetection = await portService.detectRpcPort();
     
     let rpcPort: number | undefined;
     if (rpcDetection.success && rpcDetection.localPort) {
       rpcPort = rpcDetection.localPort;
-      console.log(`✅ RPC port detected: ${rpcPort} (source: ${rpcDetection.source})`);
+      logger.info(`✅ RPC port detected: ${rpcPort} (source: ${rpcDetection.source})`);
     } else {
-      console.warn(`⚠️  RPC port detection failed: ${rpcDetection.error}`);
+      logger.warn(`⚠️  RPC port detection failed: ${rpcDetection.error}`);
     }
 
     // Step 3: Start RPC invoker if we have RPC port
     if (rpcPort) {
       try {
-        console.log('🚀 Creating RPC invoker...');
+        logger.info('🚀 Creating RPC invoker...');
         await createInvoker(tunnelClient, tunnelProperties.connectAccessToken);
-        console.log('✅ RPC invoker created successfully');
-        console.log('🔄 RPC invoker available for SSH server operations');
+        logger.info('✅ RPC invoker created successfully');
+        logger.info('🔄 RPC invoker available for SSH server operations');
       } catch (rpcError: any) {
-        console.warn(`⚠️  RPC invoker creation failed: ${rpcError.message}`);
+        logger.warn(`⚠️  RPC invoker creation failed: ${rpcError.message}`);
       }
     }
 
     // Step 4: Detect SSH port using clean API-first approach
-    console.log('🔍 Detecting SSH port (2222/22) using API methods...');
+    logger.info('🔍 Detecting SSH port (2222/22) using API methods...');
     const sshDetection = await portService.detectSshPort();
     
     let sshPort: number | undefined;
     if (sshDetection.success && sshDetection.localPort) {
       sshPort = sshDetection.localPort;
-      console.log(`✅ SSH port detected: ${sshPort} (source: ${sshDetection.source})`);
+      logger.info(`✅ SSH port detected: ${sshPort} (source: ${sshDetection.source})`);
     } else {
-      console.warn(`⚠️  SSH port detection failed: ${sshDetection.error}`);
+      logger.warn(`⚠️  SSH port detection failed: ${sshDetection.error}`);
     }
 
     // Step 5: Set up real-time port monitoring
     portService.onPortStateChange((state) => {
-      console.log(`📊 Port state updated: ${state.userPorts.length} user ports, ${state.managementPorts.length} management ports`);
+      logger.info(`📊 Port state updated: ${state.userPorts.length} user ports, ${state.managementPorts.length} management ports`);
       
       // Update network icon or other UI elements here
       // This replaces the complex WebSocket port update logic
@@ -93,16 +95,16 @@ export async function establishCleanTunnelConnection(
     // Optional: Get debug trace service if enabled
     const traceService = portService.getTraceListener();
     if (traceService) {
-      console.log('🎧 Trace listener active for debugging');
+      logger.info('🎧 Trace listener active for debugging');
       
       // Example: Log trace statistics
       setTimeout(() => {
         const stats = traceService.getTraceStats();
-        console.log('📈 Trace statistics:', stats);
+        logger.info('📈 Trace statistics:', { stats });
       }, 10000);
     }
 
-    console.log('✅ Clean tunnel connection established successfully');
+    logger.info('✅ Clean tunnel connection established successfully');
     
     return {
       rpcPort,
@@ -112,7 +114,7 @@ export async function establishCleanTunnelConnection(
     };
 
   } catch (error: any) {
-    console.error('❌ Clean tunnel connection failed:', error.message);
+    logger.error('❌ Clean tunnel connection failed:', { error: error.message });
     
     // Cleanup on failure
     portService.cleanup();
@@ -125,15 +127,15 @@ export async function establishCleanTunnelConnection(
  * Example of monitoring port changes in real-time
  */
 export function setupPortMonitoring(portService: TunnelPortService): () => void {
-  console.log('📡 Setting up real-time port monitoring...');
+  logger.info('📡 Setting up real-time port monitoring...');
   
   return portService.onPortStateChange((state) => {
-    console.log('🔄 Port state changed:');
-    console.log(`  - User ports: ${state.userPorts.length}`);
-    console.log(`  - Management ports: ${state.managementPorts.length}`);
-    console.log(`  - RPC port: ${state.rpcPort ? state.rpcPort.localPort : 'not detected'}`);
-    console.log(`  - SSH port: ${state.sshPort ? state.sshPort.localPort : 'not detected'}`);
-    console.log(`  - Last updated: ${state.lastUpdated.toISOString()}`);
+    logger.info('🔄 Port state changed:');
+    logger.info(`  - User ports: ${state.userPorts.length}`);
+    logger.info(`  - Management ports: ${state.managementPorts.length}`);
+    logger.info(`  - RPC port: ${state.rpcPort ? state.rpcPort.localPort : 'not detected'}`);
+    logger.info(`  - SSH port: ${state.sshPort ? state.sshPort.localPort : 'not detected'}`);
+    logger.info(`  - Last updated: ${state.lastUpdated.toISOString()}`);
     
     // Example: Update UI network icon
     const totalPorts = state.userPorts.length + state.managementPorts.length;
@@ -148,12 +150,12 @@ export function setupPortMonitoring(portService: TunnelPortService): () => void 
  * Example UI update functions (placeholders)
  */
 function updateNetworkIcon(portCount: number): void {
-  console.log(`🗼 Updating network icon: ${portCount} active ports`);
+  logger.info(`🗼 Updating network icon: ${portCount} active ports`);
   // This would update the actual UI network icon
 }
 
 function updatePortDialog(ports: any[]): void {
-  console.log(`📋 Updating port dialog: ${ports.length} ports available`);
+  logger.info(`📋 Updating port dialog: ${ports.length} ports available`);
   // This would update the actual port dialog UI
 }
 
@@ -164,15 +166,15 @@ export async function requestSpecificPortForwarding(
   portService: TunnelPortService, 
   remotePort: number
 ): Promise<number | null> {
-  console.log(`📡 Requesting port forwarding for remote port ${remotePort}...`);
+  logger.info(`📡 Requesting port forwarding for remote port ${remotePort}...`);
   
   const result = await portService.requestPortForwarding(remotePort);
   
   if (result.success && result.localPort) {
-    console.log(`✅ Port ${remotePort} forwarded to local port ${result.localPort}`);
+    logger.info(`✅ Port ${remotePort} forwarded to local port ${result.localPort}`);
     return result.localPort;
   } else {
-    console.warn(`⚠️  Failed to forward port ${remotePort}: ${result.error}`);
+    logger.warn(`⚠️  Failed to forward port ${remotePort}: ${result.error}`);
     return null;
   }
 }
@@ -184,11 +186,11 @@ export function exportDebugTraceData(portService: TunnelPortService): string | n
   const traceData = portService.exportTraceData();
   
   if (traceData) {
-    console.log('📄 Exporting trace data for debugging...');
+    logger.info('📄 Exporting trace data for debugging...');
     // This could be saved to a file or sent to support
     return traceData;
   } else {
-    console.log('⚠️  No trace data available (trace listener not enabled)');
+    logger.warn('⚠️  No trace data available (trace listener not enabled)');
     return null;
   }
 }
@@ -200,7 +202,7 @@ export function cleanupTunnelConnection(
   portService: TunnelPortService,
   portMonitoringUnsubscribe?: () => void
 ): void {
-  console.log('🧹 Cleaning up tunnel connection...');
+  logger.info('🧹 Cleaning up tunnel connection...');
   
   // Unsubscribe from port monitoring
   if (portMonitoringUnsubscribe) {
@@ -210,5 +212,5 @@ export function cleanupTunnelConnection(
   // Cleanup port service (disables trace listener if active)
   portService.cleanup();
   
-  console.log('✅ Tunnel connection cleanup completed');
+  logger.info('✅ Tunnel connection cleanup completed');
 }

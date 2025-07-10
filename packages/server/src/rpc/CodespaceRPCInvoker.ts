@@ -11,6 +11,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import type { TunnelRelayTunnelClient } from '@microsoft/dev-tunnels-connections';
 import { sshKeyManager, type SSHKeyPair } from '../services/SSHKeyManager.js';
+import { logger } from '../utils/logger';   
 
 /**
  * Test if a port is accepting connections
@@ -127,11 +128,11 @@ export async function createInvoker(
   };
 
   try {
-    console.log('🚀 === RPC INVOKER CREATION START ===');
-    console.log('Creating RPC invoker for codespace internal services...');
+    logger.info('🚀 === RPC INVOKER CREATION START ===');
+    logger.info('Creating RPC invoker for codespace internal services...');
     
     // Load protobuf definitions first
-    console.log('📦 Loading protobuf definitions...');
+    logger.info('📦 Loading protobuf definitions...');
     await loadProtoDefinitions();
     
     // Step 1: Create a local TCP listener for the gRPC connection
@@ -139,69 +140,69 @@ export async function createInvoker(
     invoker.localListener = listener.server;
     invoker.localPort = listener.port;
     
-    console.log(`Local gRPC listener created on port ${invoker.localPort}`);
+    logger.info(`Local gRPC listener created on port ${invoker.localPort}`);
     
     // Step 2: Research what APIs are available on the tunnel client
-    console.log('🔍 === TUNNEL CLIENT API RESEARCH ===');
-    console.log('Available tunnel client properties:');
-    console.log('- tunnelSession available:', !!(tunnelClient as any).tunnelSession);
-    console.log('- session available:', !!(tunnelClient as any).session);
-    console.log('- sshSession available:', !!(tunnelClient as any).sshSession);
-    console.log('- endpoints available:', !!(tunnelClient as any).endpoints);
-    console.log('- portForwardingService available:', !!(tunnelClient as any).portForwardingService);
+    logger.debug('🔍 === TUNNEL CLIENT API RESEARCH ===');
+    logger.debug('Available tunnel client properties:');
+    logger.debug('- tunnelSession available:', { available: !!(tunnelClient as any).tunnelSession });
+    logger.debug('- session available:', { available: !!(tunnelClient as any).session });
+    logger.debug('- sshSession available:', { available: !!(tunnelClient as any).sshSession });
+    logger.debug('- endpoints available:', { available: !!(tunnelClient as any).endpoints });
+    logger.debug('- portForwardingService available:', { available: !!(tunnelClient as any).portForwardingService });
     
     // Try to inspect the tunnel session for port forwarding info
     const tunnelSession = (tunnelClient as any).tunnelSession;
     if (tunnelSession) {
-      console.log('🔍 TunnelSession properties:');
-      console.log('- getService method:', typeof tunnelSession.getService);
-      console.log('- localForwardedPorts:', !!(tunnelSession as any).localForwardedPorts);
-      console.log('- forwardedPorts:', !!(tunnelSession as any).forwardedPorts);
-      console.log('- portForwardingService:', !!(tunnelSession as any).portForwardingService);
+      logger.debug('🔍 TunnelSession properties:');
+      logger.debug('- getService method:', { type: typeof tunnelSession.getService });
+      logger.debug('- localForwardedPorts:', { available: !!(tunnelSession as any).localForwardedPorts });
+      logger.debug('- forwardedPorts:', { available: !!(tunnelSession as any).forwardedPorts });
+      logger.debug('- portForwardingService:', { available: !!(tunnelSession as any).portForwardingService });
       
       // Try to get the port forwarding service
       try {
         const pfs = tunnelSession.getService('PortForwardingService');
         if (pfs) {
-          console.log('✅ Found PortForwardingService');
-          console.log('- listeners available:', !!(pfs as any).listeners);
-          console.log('- localForwardedPorts available:', !!(pfs as any).localForwardedPorts);
+          logger.info('✅ Found PortForwardingService');
+          logger.debug('- listeners available:', { available: !!(pfs as any).listeners });
+          logger.debug('- localForwardedPorts available:', { available: !!(pfs as any).localForwardedPorts });
           
           // Try to get actual port mappings
           if ((pfs as any).listeners) {
             const listeners = (pfs as any).listeners;
-            console.log('🎯 Active listeners:', Array.from(listeners.keys()));
+            logger.debug('🎯 Active listeners:', { listeners: Array.from(listeners.keys()) });
             
             // Look for our RPC port
             for (const [localPort, remoteInfo] of listeners) {
-              console.log(`📍 Local port ${localPort} -> remote info:`, remoteInfo);
+              logger.debug(`📍 Local port ${localPort} -> remote info:`, { remoteInfo });
               if (remoteInfo && remoteInfo.remotePort === CODESPACES_INTERNAL_PORT) {
-                console.log(`🎯 FOUND RPC PORT MAPPING: ${localPort} -> ${CODESPACES_INTERNAL_PORT}`);
+                logger.info(`🎯 FOUND RPC PORT MAPPING: ${localPort} -> ${CODESPACES_INTERNAL_PORT}`);
                 return localPort;
               }
             }
           }
         }
       } catch (serviceError) {
-        console.log('❌ Failed to get PortForwardingService:', serviceError);
+        logger.warn('❌ Failed to get PortForwardingService:', { serviceError });
       }
     }
     
     // Fallback to our detection method
-    console.log('🔄 Falling back to port detection method...');
+    logger.info('🔄 Falling back to port detection method...');
     const rpcForwardedPort = await attemptRPCPortForwarding(tunnelClient);
     
     if (!rpcForwardedPort) {
       throw new Error('Failed to establish RPC port forwarding to codespace internal services');
     }
     
-    console.log(`RPC port forwarded to local port: ${rpcForwardedPort}`);
+    logger.info(`RPC port forwarded to local port: ${rpcForwardedPort}`);
     
     // Step 3: Create gRPC client connection
     const grpcConnection = await createGRPCConnection(`127.0.0.1:${rpcForwardedPort}`);
     invoker.grpcConnection = grpcConnection;
     
-    console.log('gRPC connection to codespace internal services established');
+    logger.info('gRPC connection to codespace internal services established');
     
     // Step 4: Send initial connection heartbeat
     await notifyCodespaceOfClientActivity(invoker, 'connected');
@@ -212,7 +213,7 @@ export async function createInvoker(
     return createInvokerInterface(invoker);
     
   } catch (error: any) {
-    console.error('Failed to create RPC invoker:', error.message);
+    logger.error('Failed to create RPC invoker:', error);
     await cleanup(invoker);
     throw error;
   }
@@ -258,7 +259,7 @@ function setupPortDetectionFromTraces(tunnelClient: TunnelRelayTunnelClient): { 
       const rpcForwardMatch = msg.match(/Forwarding from 127\.0\.0\.1:(\d+) to host port 16634\./);
       if (rpcForwardMatch) {
         const localPort = parseInt(rpcForwardMatch[1], 10);
-        console.log(`🎯 DETECTED: RPC port ${CODESPACES_INTERNAL_PORT} forwarded to local port ${localPort}`);
+        logger.info(`🎯 DETECTED: RPC port ${CODESPACES_INTERNAL_PORT} forwarded to local port ${localPort}`);
         detectedRPCPort = localPort;
       }
     }
@@ -274,12 +275,12 @@ function setupPortDetectionFromTraces(tunnelClient: TunnelRelayTunnelClient): { 
  */
 async function attemptRPCPortForwarding(tunnelClient: TunnelRelayTunnelClient): Promise<number | null> {
   try {
-    console.log('🔍 Setting up port detection from tunnel traces...');
+    logger.info('🔍 Setting up port detection from tunnel traces...');
     
     // Set up trace parsing to detect actual forwarded ports
     const portDetector = setupPortDetectionFromTraces(tunnelClient);
     
-    console.log(`⏱️  Waiting for RPC port ${CODESPACES_INTERNAL_PORT} forwarding (timeout: 3s)...`);
+    logger.info(`⏱️  Waiting for RPC port ${CODESPACES_INTERNAL_PORT} forwarding (timeout: 3s)...`);
     
     const timeoutPromise = new Promise<void>((_, reject) => {
       setTimeout(() => reject(new Error('RPC port detection timeout')), 3000);
@@ -291,7 +292,7 @@ async function attemptRPCPortForwarding(tunnelClient: TunnelRelayTunnelClient): 
         timeoutPromise
       ]);
       
-      console.log(`✅ RPC port ${CODESPACES_INTERNAL_PORT} forwarding requested`);
+      logger.info(`✅ RPC port ${CODESPACES_INTERNAL_PORT} forwarding requested`);
       
       // Give the trace parser a moment to detect the actual local port
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -299,43 +300,43 @@ async function attemptRPCPortForwarding(tunnelClient: TunnelRelayTunnelClient): 
       const detectedPort = portDetector.getDetectedRPCPort();
       
       if (detectedPort) {
-        console.log(`🎯 Using trace-detected RPC port: ${detectedPort}`);
+        logger.info(`🎯 Using trace-detected RPC port: ${detectedPort}`);
         
         // Test the detected port
         const isConnectable = await testPortConnection('127.0.0.1', detectedPort);
         if (isConnectable) {
-          console.log(`✅ Confirmed connection to detected port ${detectedPort}`);
+          logger.info(`✅ Confirmed connection to detected port ${detectedPort}`);
           return detectedPort;
         } else {
-          console.log(`❌ Detected port ${detectedPort} not connectable, falling back...`);
+          logger.warn(`❌ Detected port ${detectedPort} not connectable, falling back...`);
         }
       } else {
-        console.log('⚠️  No port detected from traces, trying alternatives...');
+        logger.warn('⚠️  No port detected from traces, trying alternatives...');
       }
       
       // Fallback: test common alternative ports
-      console.log('🔍 Scanning common RPC forwarding ports...');
+      logger.info('🔍 Scanning common RPC forwarding ports...');
       const rpcPorts = [16634, 16635, 16636, 16637, 16638, 16639];
       for (const port of rpcPorts) {
-        console.log(`🔌 Testing RPC connectivity on port ${port}...`);
+        logger.debug(`🔌 Testing RPC connectivity on port ${port}...`);
         const isConnectable = await testPortConnection('127.0.0.1', port);
         if (isConnectable) {
-          console.log(`✅ Found accessible RPC port: ${port}`);
+          logger.info(`✅ Found accessible RPC port: ${port}`);
           return port;
         }
       }
       
     } catch (error: any) {
-      console.log(`⏱️  RPC port detection timeout: ${error.message}`);
+      logger.warn(`⏱️  RPC port detection timeout: ${error.message}`);
     }
     
     // TODO: Implement manual port forwarding if not automatically forwarded
     // This would require deeper integration with the tunnel session
-    console.log('No existing RPC port forwarding found - would need manual setup');
+    logger.warn('No existing RPC port forwarding found - would need manual setup');
     return null;
     
   } catch (error: any) {
-    console.log(`RPC port forwarding detection failed: ${error.message}`);
+    logger.error(`RPC port forwarding detection failed:`, error);
     return null;
   }
 }
@@ -345,18 +346,18 @@ async function attemptRPCPortForwarding(tunnelClient: TunnelRelayTunnelClient): 
  */
 async function createGRPCConnection(target: string): Promise<grpc.Client> {
   return new Promise((resolve, reject) => {
-    console.log(`🔌 Creating gRPC client connection to ${target}...`);
-    console.log(`⏱️  Connection timeout: ${CONNECTION_TIMEOUT}ms`);
+    logger.info(`🔌 Creating gRPC client connection to ${target}...`);
+    logger.info(`⏱️  Connection timeout: ${CONNECTION_TIMEOUT}ms`);
     
     const client = new grpc.Client(target, grpc.credentials.createInsecure());
     
     const deadline = Date.now() + CONNECTION_TIMEOUT;
     client.waitForReady(deadline, (error) => {
       if (error) {
-        console.log(`❌ gRPC connection failed: ${error.message}`);
+        logger.error(`❌ gRPC connection failed:`, error);
         reject(new Error(`gRPC connection failed: ${error.message}`));
       } else {
-        console.log('✅ gRPC client ready');
+        logger.info('✅ gRPC client ready');
         resolve(client);
       }
     });
@@ -372,9 +373,9 @@ function createAuthMetadata(authToken?: string): grpc.Metadata {
   if (authToken) {
     // Add authorization header as per GitHub CLI pattern
     metadata.add('authorization', `Bearer ${authToken}`);
-    console.log('Added authentication token to gRPC metadata');
+    logger.info('Added authentication token to gRPC metadata');
   } else {
-    console.warn('No authentication token provided for gRPC calls');
+    logger.warn('No authentication token provided for gRPC calls');
   }
   
   return metadata;
@@ -396,14 +397,14 @@ async function loadProtoDefinitions(): Promise<void> {
     
     // Load SSH service proto
     sshProtoRoot = await protobuf.load(path.join(protoDir, 'ssh_server_host_service.proto'));
-    console.log('✅ Loaded SSH service proto definitions');
+    logger.info('✅ Loaded SSH service proto definitions');
     
     // Load Codespace service proto
     codespaceProtoRoot = await protobuf.load(path.join(protoDir, 'codespace_host_service.proto'));
-    console.log('✅ Loaded Codespace service proto definitions');
+    logger.info('✅ Loaded Codespace service proto definitions');
     
   } catch (error: any) {
-    console.error('❌ Failed to load proto definitions:', error.message);
+    logger.error('❌ Failed to load proto definitions:', { error: error.message });
     throw new Error(`Proto loading failed: ${error.message}`);
   }
 }
@@ -470,8 +471,8 @@ async function callStartRemoteServerAsync(
   authToken?: string
 ): Promise<StartRemoteServerResponse> {
   return new Promise((resolve, reject) => {
-    console.log('📞 Calling StartRemoteServerAsync gRPC service...');
-    console.log('📝 Request:', { UserPublicKey: request.UserPublicKey ? '[PROVIDED]' : '[MISSING]' });
+    logger.info('📞 Calling StartRemoteServerAsync gRPC service...');
+    logger.info('📝 Request:', { UserPublicKey: request.UserPublicKey ? '[PROVIDED]' : '[MISSING]' });
     
     const metadata = createAuthMetadata(authToken);
     
@@ -491,7 +492,7 @@ async function callStartRemoteServerAsync(
         try {
           return deserializeStartRemoteServerResponse(arg);
         } catch (error) {
-          console.error('Failed to deserialize protobuf response:', error);
+          logger.error('Failed to deserialize protobuf response:', { error });
           return { Result: false, ServerPort: '', User: '', Message: 'Failed to parse protobuf response' };
         }
       },
@@ -499,12 +500,12 @@ async function callStartRemoteServerAsync(
       metadata,
       (error: grpc.ServiceError | null, response?: StartRemoteServerResponse) => {
         if (error) {
-          console.error('❌ StartRemoteServerAsync failed:', error.message);
-          console.error('❌ Error details:', error.details);
-          console.error('❌ Error code:', error.code);
+          logger.error('❌ StartRemoteServerAsync failed:', { error: error.message });
+          logger.error('❌ Error details:', { details: error.details });
+          logger.error('❌ Error code:', { code: error.code });
           reject(new Error(`gRPC call failed: ${error.message}`));
         } else if (response) {
-          console.log('✅ StartRemoteServerAsync succeeded:', response);
+          logger.info('✅ StartRemoteServerAsync succeeded:', { response });
           resolve(response);
         } else {
           reject(new Error('No response received from gRPC call'));
@@ -533,8 +534,8 @@ async function callNotifyCodespaceOfClientActivity(
   authToken?: string
 ): Promise<NotifyCodespaceOfClientActivityResponse> {
   return new Promise((resolve) => {
-    console.log('📞 Calling NotifyCodespaceOfClientActivity gRPC service...');
-    console.log('📝 Request:', { ClientId: request.ClientId, Activities: request.ClientActivities });
+    logger.info('📞 Calling NotifyCodespaceOfClientActivity gRPC service...');
+    logger.info('📝 Request:', { ClientId: request.ClientId, Activities: request.ClientActivities });
     
     const metadata = createAuthMetadata(authToken);
     
@@ -554,7 +555,7 @@ async function callNotifyCodespaceOfClientActivity(
         try {
           return deserializeNotifyCodespaceResponse(arg);
         } catch (error) {
-          console.error('Failed to deserialize protobuf response:', error);
+          logger.error('Failed to deserialize protobuf response:', { error });
           return { Result: false, Message: 'Failed to parse protobuf response' };
         }
       },
@@ -562,10 +563,10 @@ async function callNotifyCodespaceOfClientActivity(
       metadata,
       (error: grpc.ServiceError | null, response?: NotifyCodespaceOfClientActivityResponse) => {
         if (error) {
-          console.error('❌ NotifyCodespaceOfClientActivity failed:', error.message);
+          logger.error('❌ NotifyCodespaceOfClientActivity failed:', { error: error.message });
           resolve({ Result: false, Message: error.message }); // Don't reject - this is non-critical
         } else if (response) {
-          console.log('✅ NotifyCodespaceOfClientActivity succeeded:', response);
+          logger.info('✅ NotifyCodespaceOfClientActivity succeeded:', { response });
           resolve(response);
         } else {
           resolve({ Result: false, Message: 'No response received' });
@@ -580,7 +581,7 @@ async function callNotifyCodespaceOfClientActivity(
  */
 async function notifyCodespaceOfClientActivity(invoker: InvokerImpl, activity: string): Promise<void> {
   if (!invoker.grpcConnection) {
-    console.log('No gRPC connection available for activity notification');
+    logger.warn('No gRPC connection available for activity notification');
     return;
   }
   
@@ -595,12 +596,12 @@ async function notifyCodespaceOfClientActivity(invoker: InvokerImpl, activity: s
     );
     
     if (result.Result) {
-      console.log(`✅ Activity notification sent: ${activity}`);
+      logger.info(`✅ Activity notification sent: ${activity}`);
     } else {
-      console.log(`⚠️  Activity notification failed: ${result.Message}`);
+      logger.warn(`⚠️  Activity notification failed: ${result.Message}`);
     }
   } catch (error: any) {
-    console.error('Failed to send activity notification:', error.message);
+    logger.error('Failed to send activity notification:', { error: error.message });
     // Don't throw - activity notifications are non-critical
   }
 }
@@ -613,12 +614,12 @@ function startHeartbeat(invoker: InvokerImpl): void {
   const heartbeatInterval = parseInt(process.env.RPC_HEARTBEAT_INTERVAL || '60000', 10); // Default: 1 minute
   const gracePeriod = parseInt(process.env.RPC_SESSION_KEEPALIVE || '300000', 10); // Default: 5 minutes
   
-  console.log(`🫀 Starting RPC heartbeat: ${heartbeatInterval/1000}s interval, ${gracePeriod/1000}s grace period`);
+  logger.info(`🫀 Starting RPC heartbeat: ${heartbeatInterval/1000}s interval, ${gracePeriod/1000}s grace period`);
   
   invoker.heartbeatInterval = setInterval(() => {
     // Skip heartbeat if paused or if gRPC connection is unavailable
     if (invoker.isPaused || !invoker.grpcConnection) {
-      console.log('⏸️  Heartbeat paused - no active client connection');
+      logger.debug('⏸️  Heartbeat paused - no active client connection');
       return;
     }
     
@@ -626,10 +627,10 @@ function startHeartbeat(invoker: InvokerImpl): void {
     if (!invoker.isConnected && invoker.disconnectTime) {
       const timeSinceDisconnect = Date.now() - invoker.disconnectTime;
       if (timeSinceDisconnect < gracePeriod) {
-        console.log(`⏳ Client disconnected ${Math.round(timeSinceDisconnect/1000)}s ago - waiting ${Math.round((gracePeriod - timeSinceDisconnect)/1000)}s more before releasing resources`);
+        logger.debug(`⏳ Client disconnected ${Math.round(timeSinceDisconnect/1000)}s ago - waiting ${Math.round((gracePeriod - timeSinceDisconnect)/1000)}s more before releasing resources`);
         return;
       } else {
-        console.log('🕐 Grace period expired - client not reconnected, releasing resources');
+        logger.warn('🕐 Grace period expired - client not reconnected, releasing resources');
         releaseResources(invoker);
         return;
       }
@@ -648,10 +649,10 @@ function startHeartbeat(invoker: InvokerImpl): void {
       notifyCodespaceOfClientActivity(invoker, reason).catch((error) => {
         // If gRPC fails, it likely means the tunnel is down
         if (error.message?.includes('UNAVAILABLE') || error.message?.includes('ECONNREFUSED')) {
-          console.log('🔌 gRPC connection lost - marking as disconnected');
+          logger.warn('🔌 gRPC connection lost - marking as disconnected');
           markAsDisconnected(invoker);
         } else {
-          console.error('Heartbeat failed:', error);
+          logger.error('Heartbeat failed:', { error });
         }
       });
     }
@@ -665,7 +666,7 @@ function markAsDisconnected(invoker: InvokerImpl): void {
   const gracePeriod = parseInt(process.env.RPC_SESSION_KEEPALIVE || '300000', 10); // Default: 5 minutes
   
   if (invoker.isConnected) {
-    console.log(`📴 Marking RPC connection as disconnected - starting ${gracePeriod/1000}s grace period`);
+    logger.warn(`📴 Marking RPC connection as disconnected - starting ${gracePeriod/1000}s grace period`);
     invoker.isConnected = false;
     invoker.disconnectTime = Date.now();
     
@@ -675,7 +676,7 @@ function markAsDisconnected(invoker: InvokerImpl): void {
     }
     
     invoker.gracePeriodTimeout = setTimeout(() => {
-      console.log('⏰ Grace period expired - auto-releasing RPC resources');
+      logger.warn('⏰ Grace period expired - auto-releasing RPC resources');
       releaseResources(invoker);
     }, gracePeriod);
   }
@@ -686,7 +687,7 @@ function markAsDisconnected(invoker: InvokerImpl): void {
  */
 function markAsReconnected(invoker: InvokerImpl): void {
   if (!invoker.isConnected) {
-    console.log('🔄 Client reconnected - canceling resource release');
+    logger.info('🔄 Client reconnected - canceling resource release');
     invoker.isConnected = true;
     invoker.disconnectTime = undefined;
     
@@ -701,7 +702,7 @@ function markAsReconnected(invoker: InvokerImpl): void {
  * Release RPC resources due to extended disconnection
  */
 function releaseResources(invoker: InvokerImpl): void {
-  console.log('🗑️  Releasing RPC resources due to extended client disconnection');
+  logger.warn('🗑️  Releasing RPC resources due to extended client disconnection');
   
   // Pause heartbeat to stop futile gRPC calls
   invoker.isPaused = true;
@@ -711,7 +712,7 @@ function releaseResources(invoker: InvokerImpl): void {
     try {
       invoker.grpcConnection.close();
     } catch (error) {
-      console.error('Error closing gRPC connection:', error);
+      logger.error('Error closing gRPC connection:', { error });
     }
     invoker.grpcConnection = undefined;
   }
@@ -723,7 +724,7 @@ function releaseResources(invoker: InvokerImpl): void {
  * Clean up resources
  */
 async function cleanup(invoker: InvokerImpl): Promise<void> {
-  console.log('🧹 Cleaning up RPC invoker resources');
+  logger.info('🧹 Cleaning up RPC invoker resources');
   
   if (invoker.heartbeatInterval) {
     clearInterval(invoker.heartbeatInterval);
@@ -764,7 +765,7 @@ async function testGRPCConnection(client: grpc.Client): Promise<{ success: boole
   try {
     // Try to get the client state
     const state = client.getChannel().getConnectivityState(false);
-    console.log(`🔍 gRPC channel state: ${state}`);
+    logger.debug(`🔍 gRPC channel state: ${state}`);
     
     if (state === grpc.connectivityState.READY || state === grpc.connectivityState.CONNECTING) {
       return { success: true };
@@ -780,10 +781,10 @@ async function testGRPCConnection(client: grpc.Client): Promise<{ success: boole
  * Attempt to discover available gRPC services
  * Currently unused but kept for future service discovery needs
  */
-// @ts-ignore - Function kept for future service discovery implementation
-function discoverGRPCServices(_client: grpc.Client): Promise<string[]> {
+// @ts-expect-error - Function kept for future service discovery implementation
+function _discoverGRPCServices(_client: grpc.Client): Promise<string[]> {
   // This is a basic approach - in practice, we'd need reflection or service definitions
-  console.log('🔍 gRPC service discovery not yet implemented');
+  logger.warn('🔍 gRPC service discovery not yet implemented');
   return Promise.resolve(['Services would be listed here with proper reflection']);
 }
 
@@ -802,7 +803,7 @@ function createInvokerInterface(invoker: InvokerImpl): CodespaceRPCInvoker {
     },
     
     async startSSHServerWithOptions(options: StartSSHServerOptions): Promise<SSHServerResult> {
-      console.log('🚀 Starting SSH server with options:', options);
+      logger.info('🚀 Starting SSH server with options:', { options });
       
       if (!invoker.grpcConnection) {
         return {
@@ -814,12 +815,12 @@ function createInvokerInterface(invoker: InvokerImpl): CodespaceRPCInvoker {
       }
       
       try {
-        console.log('🧪 Testing gRPC connection with basic call...');
+        logger.info('🧪 Testing gRPC connection with basic call...');
         
         // Test if we can make ANY gRPC call to the service
         // This will help us determine if the service is actually listening
         const testResult = await testGRPCConnection(invoker.grpcConnection);
-        console.log(`🧪 gRPC connection test result:`, testResult);
+        logger.info(`🧪 gRPC connection test result:`, { testResult });
         
         if (!testResult.success) {
           return {
@@ -830,32 +831,32 @@ function createInvokerInterface(invoker: InvokerImpl): CodespaceRPCInvoker {
           };
         }
         
-        console.log('✅ gRPC service is responding, proceeding with SSH server start...');
+        logger.info('✅ gRPC service is responding, proceeding with SSH server start...');
         
         // Generate ephemeral SSH key pair for this session
-        console.log(`🔑 Generating ephemeral SSH key pair for session: ${options.sessionId}`);
+        logger.info(`🔑 Generating ephemeral SSH key pair for session: ${options.sessionId}`);
         const keyPair = await sshKeyManager.generateSessionKeys(options.sessionId);
         
         // Store the key pair for later use in SSH connection
         invoker.currentKeyPair = keyPair;
         
-        console.log(`🔑 Generated SSH key pair with fingerprint: ${keyPair.fingerprint}`);
-        console.log(`🔑 Public key: ${keyPair.publicKey.substring(0, 50)}...`);
+        logger.info(`🔑 Generated SSH key pair with fingerprint: ${keyPair.fingerprint}`);
+        logger.debug(`🔑 Public key: ${keyPair.publicKey.substring(0, 50)}...`);
         
         // Implement the real SSH server start call using proto definitions
-        console.log('🚀 Making actual StartRemoteServerAsync gRPC call...');
+        logger.info('🚀 Making actual StartRemoteServerAsync gRPC call...');
         
         const startResult = await callStartRemoteServerAsync(invoker.grpcConnection, {
           UserPublicKey: keyPair.publicKey
         }, invoker.authToken);
         
-        console.log('📋 SSH server start result:', startResult);
-        console.log(`🔑 Auth token available: ${!!invoker.authToken}`);
-        console.log(`📄 Public key provided: ${!!keyPair.publicKey}`);
+        logger.info('📋 SSH server start result:', { startResult });
+        logger.debug(`🔑 Auth token available: ${!!invoker.authToken}`);
+        logger.debug(`📄 Public key provided: ${!!keyPair.publicKey}`);
         
         if (startResult.Result) {
           const serverPort = parseInt(startResult.ServerPort, 10);
-          console.log(`✅ SSH server started successfully on port ${serverPort}, user: ${startResult.User}`);
+          logger.info(`✅ SSH server started successfully on port ${serverPort}, user: ${startResult.User}`);
           
           return {
             port: serverPort,
@@ -864,7 +865,7 @@ function createInvokerInterface(invoker: InvokerImpl): CodespaceRPCInvoker {
             message: startResult.Message
           };
         } else {
-          console.log(`❌ SSH server start failed: ${startResult.Message}`);
+          logger.error(`❌ SSH server start failed: ${startResult.Message}`);
           
           return {
             port: 0,
@@ -875,7 +876,7 @@ function createInvokerInterface(invoker: InvokerImpl): CodespaceRPCInvoker {
         }
         
       } catch (error: any) {
-        console.error('❌ SSH server start failed:', error.message);
+        logger.error('❌ SSH server start failed:', { error: error.message });
         return {
           port: 0,
           user: '',
@@ -887,7 +888,7 @@ function createInvokerInterface(invoker: InvokerImpl): CodespaceRPCInvoker {
     
     keepAlive(): void {
       invoker.keepAliveOverride = true;
-      console.log('Keep-alive override enabled');
+      logger.info('Keep-alive override enabled');
     },
     
     markAsDisconnected(): void {

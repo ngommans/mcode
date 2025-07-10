@@ -10,6 +10,8 @@ import type { TunnelProperties, TunnelConnectionResult, PortInformation } from '
 import TunnelPortService from './TunnelPortService.js';
 import { createInvoker, type CodespaceRPCInvoker } from '../rpc/CodespaceRPCInvoker.js';
 
+import { logger } from '../utils/logger';
+
 interface TunnelReference {
   tunnelId: string;
   clusterId: string;
@@ -44,8 +46,8 @@ export async function connectToTunnel(
   userAgent: UserAgent,
   tunnelProperties: TunnelProperties
 ): Promise<TunnelConnectionResult> {
-  console.log('🚀 === CLEAN TUNNEL CONNECTION START ===');
-  console.log('Using new API-based port detection architecture');
+  logger.info('🚀 === CLEAN TUNNEL CONNECTION START ===');
+  logger.info('Using new API-based port detection architecture');
 
   const tunnelReference: TunnelReference = {
     tunnelId: tunnelProperties.tunnelId,
@@ -68,7 +70,7 @@ export async function connectToTunnel(
   const portInfo: PortInformation = { userPorts: [], managementPorts: [], allPorts: [] };
 
   try {
-    console.log('📡 Fetching tunnel object for connection...');
+    logger.info('📡 Fetching tunnel object for connection...');
     const tunnel = await tunnelManagementClient.getTunnel(tunnelReference, tunnelRequestOptions);
     
     if (!tunnel) {
@@ -81,7 +83,7 @@ export async function connectToTunnel(
     };
 
     // Initialize port service first
-    console.log('🔧 Initializing port forwarding service...');
+    logger.info('🔧 Initializing port forwarding service...');
     portService = new TunnelPortService({
       enableTraceParsingFallback: true, // Keep as fallback for debugging
       portDetectionTimeoutMs: 5000,
@@ -91,13 +93,13 @@ export async function connectToTunnel(
     // Create tunnel client
     client = new TunnelRelayTunnelClient();
     
-    console.log('🔌 Connecting tunnel client...');
+    logger.info('🔌 Connecting tunnel client...');
     await client.connect(tunnel);
-    console.log('✅ Tunnel client connected successfully');
+    logger.info('✅ Tunnel client connected successfully');
 
     // Initialize port service with connected clients
     await portService.initialize(client, tunnelManagementClient, tunnelProperties);
-    console.log('✅ Port service initialized successfully');
+    logger.info('✅ Port service initialized successfully');
 
     // Get initial port information using new API
     const initialPortState = portService.getPortForwardingState();
@@ -105,18 +107,18 @@ export async function connectToTunnel(
     portInfo.userPorts = initialPortState.userPorts as any[];
     portInfo.managementPorts = initialPortState.managementPorts as any[];
 
-    console.log(`📊 Initial port state: ${portInfo.userPorts.length} user ports, ${portInfo.managementPorts.length} management ports`);
+    logger.info(`📊 Initial port state: ${portInfo.userPorts.length} user ports, ${portInfo.managementPorts.length} management ports`);
 
     // Step 1: RPC Connection and SSH Server Start (following GitHub CLI pattern)
-    console.log('🚀 === PRIMARY: RPC INVOKER PHASE ===');
+    logger.info('🚀 === PRIMARY: RPC INVOKER PHASE ===');
     const rpcResult = await createRPCConnectionAndStartSSH(portService, tunnelProperties);
     
     if (rpcResult.sshServerInfo && rpcResult.sshServerInfo.isRunning) {
-      console.log(`✅ RPC SSH server started successfully:`, rpcResult.sshServerInfo);
-      console.log(`🎯 Using RPC-provided SSH port: ${rpcResult.sshServerInfo.port}`);
+      logger.info(`✅ RPC SSH server started successfully:`, { sshServerInfo: rpcResult.sshServerInfo });
+      logger.info(`🎯 Using RPC-provided SSH port: ${rpcResult.sshServerInfo.port}`);
       
       // Step 2: Request SSH Port Forwarding using clean API
-      console.log('🚀 === REQUESTING SSH PORT FORWARDING ===');
+      logger.info('🚀 === REQUESTING SSH PORT FORWARDING ===');
       const remoteSSHPort = rpcResult.sshServerInfo.port;
       
       // Create tunnel port if it doesn't exist
@@ -131,32 +133,32 @@ export async function connectToTunnel(
       await triggerPortForwardingRefresh(client);
       
       // Use new port service to detect SSH port
-      console.log('🔍 Detecting SSH port using clean API...');
+      logger.info('🔍 Detecting SSH port using clean API...');
       const sshDetection = await portService.detectSshPort();
       
       if (sshDetection.success && sshDetection.localPort) {
-        console.log(`✅ SSH port detected: ${sshDetection.localPort} (source: ${sshDetection.source})`);
+        logger.info(`✅ SSH port detected: ${sshDetection.localPort} (source: ${sshDetection.source})`);
         
         return {
           success: true,
-          client,
+          client: client as any,
           portInfo: await getUpdatedPortInfo(portService),
           sshPort: sshDetection.localPort,
-          rpcConnection: rpcResult.rpcConnection,
+          rpcConnection: rpcResult.rpcConnection as any,
           cleanup: () => cleanupConnection(client, portService)
         };
       } else {
-        console.warn(`⚠️  SSH port detection failed: ${sshDetection.error}`);
-        console.log('🔄 Falling back to secondary SSH detection phase...');
+        logger.warn(`⚠️  SSH port detection failed: ${sshDetection.error}`);
+        logger.info('🔄 Falling back to secondary SSH detection phase...');
       }
     }
 
     // Fallback: Secondary SSH Detection Phase
-    console.log('🔄 === SECONDARY: SSH DETECTION PHASE ===');
+    logger.info('🔄 === SECONDARY: SSH DETECTION PHASE ===');
     const fallbackSSHResult = await checkExistingSSHServerClean(portService);
     
     if (fallbackSSHResult) {
-      console.log(`✅ Found existing SSH server on port ${fallbackSSHResult.localPort}`);
+      logger.info(`✅ Found existing SSH server on port ${fallbackSSHResult.localPort}`);
       
       return {
         success: true,
@@ -169,7 +171,7 @@ export async function connectToTunnel(
     }
 
     // If we get here, SSH detection failed but we still have a working tunnel
-    console.log('⚠️  SSH server not detected, but tunnel connection is working');
+    logger.warn('⚠️  SSH server not detected, but tunnel connection is working');
     
     return {
       success: true,
@@ -181,7 +183,7 @@ export async function connectToTunnel(
     };
 
   } catch (error: any) {
-    console.error('❌ Clean tunnel connection failed:', error.message);
+    logger.error('❌ Clean tunnel connection failed:', { error: error.message });
     
     // Cleanup on failure
     if (portService) {
@@ -194,14 +196,14 @@ export async function connectToTunnel(
           await (client as any).disconnect();
         }
       } catch (closeError) {
-        console.error('Error closing client:', closeError);
+        logger.error('Error closing client:', { closeError });
       }
     }
     
     return {
       success: false,
       error: error.message,
-      client: null,
+      client: undefined,
       portInfo,
       cleanup: () => {}
     };
@@ -216,20 +218,20 @@ async function createRPCConnectionAndStartSSH(
   tunnelProperties: TunnelProperties
 ): Promise<RPCInvokerResult> {
   try {
-    console.log('🔍 Detecting RPC port using clean API...');
+    logger.info('🔍 Detecting RPC port using clean API...');
     
     // Use new port service to detect RPC port
     const rpcDetection = await portService.detectRpcPort();
     
     if (!rpcDetection.success || !rpcDetection.localPort) {
-      console.warn(`⚠️  RPC port detection failed: ${rpcDetection.error}`);
+      logger.warn(`⚠️  RPC port detection failed: ${rpcDetection.error}`);
       return { error: `RPC port detection failed: ${rpcDetection.error}` };
     }
 
-    console.log(`✅ RPC port detected: ${rpcDetection.localPort} (source: ${rpcDetection.source})`);
+    logger.info(`✅ RPC port detected: ${rpcDetection.localPort} (source: ${rpcDetection.source})`);
 
     // Create RPC invoker (this will use the detected RPC port internally)
-    console.log('🚀 Creating RPC invoker...');
+    logger.info('🚀 Creating RPC invoker...');
     // Get tunnel client from port service for RPC invoker
     const tunnelClient = (portService as any).tunnelClient;
     if (!tunnelClient) {
@@ -241,14 +243,14 @@ async function createRPCConnectionAndStartSSH(
       tunnelProperties.connectAccessToken
     );
 
-    console.log('✅ RPC invoker created successfully');
+    logger.info('✅ RPC invoker created successfully');
 
     // Start SSH server via RPC
-    console.log('🚀 Starting SSH server via RPC...');
+    logger.info('🚀 Starting SSH server via RPC...');
     const sshResult = await rpcInvoker.startSSHServer();
 
     if (sshResult.success) {
-      console.log(`✅ SSH server started via RPC: port ${sshResult.port}, user ${sshResult.user}`);
+      logger.info(`✅ SSH server started via RPC: port ${sshResult.port}, user ${sshResult.user}`);
       return {
         sshServerInfo: {
           port: sshResult.port,
@@ -258,12 +260,12 @@ async function createRPCConnectionAndStartSSH(
         rpcConnection: rpcInvoker
       };
     } else {
-      console.warn(`⚠️  SSH server start failed: ${sshResult.message}`);
+      logger.warn(`⚠️  SSH server start failed: ${sshResult.message}`);
       return { error: `SSH server start failed: ${sshResult.message}` };
     }
 
   } catch (error: any) {
-    console.error('❌ RPC connection and SSH start failed:', error.message);
+    logger.error('❌ RPC connection and SSH start failed:', { error: error.message });
     return { error: error.message };
   }
 }
@@ -275,24 +277,24 @@ async function checkExistingSSHServerClean(
   portService: TunnelPortService
 ): Promise<{ localPort: number; remotePort: number } | null> {
   try {
-    console.log('🔍 Checking for existing SSH server using clean API...');
+    logger.info('🔍 Checking for existing SSH server using clean API...');
     
     // Try to detect SSH port (this will check existing state and attempt new detection)
     const sshDetection = await portService.detectSshPort();
     
     if (sshDetection.success && sshDetection.localPort && sshDetection.mapping) {
-      console.log(`✅ Found existing SSH server: ${sshDetection.localPort} -> ${sshDetection.mapping.remotePort}`);
+      logger.info(`✅ Found existing SSH server: ${sshDetection.localPort} -> ${sshDetection.mapping.remotePort}`);
       return {
         localPort: sshDetection.localPort,
         remotePort: sshDetection.mapping.remotePort
       };
     }
     
-    console.log('⚠️  No existing SSH server found');
+    logger.warn('⚠️  No existing SSH server found');
     return null;
     
   } catch (error: any) {
-    console.error('❌ Existing SSH server check failed:', error.message);
+    logger.error('❌ Existing SSH server check failed:', { error: error.message });
     return null;
   }
 }
@@ -307,7 +309,7 @@ async function ensureSSHTunnelPortExists(
   tunnelProperties: TunnelProperties
 ): Promise<void> {
   try {
-    console.log(`🔧 Ensuring tunnel port exists for remote port ${remoteSSHPort}...`);
+    logger.info(`🔧 Ensuring tunnel port exists for remote port ${remoteSSHPort}...`);
     
     // Check if tunnel port already exists
     const existingPorts = await tunnelManagementClient.listTunnelPorts(tunnel, {
@@ -318,7 +320,7 @@ async function ensureSSHTunnelPortExists(
     const portExists = existingPorts.find(p => p.portNumber === remoteSSHPort);
     
     if (!portExists) {
-      console.log(`Creating tunnel port ${remoteSSHPort} for SSH server...`);
+      logger.info(`Creating tunnel port ${remoteSSHPort} for SSH server...`);
       
       // CRITICAL: Use HTTP protocol instead of SSH to enable local port forwarding
       const tunnelPort = { 
@@ -333,14 +335,14 @@ async function ensureSSHTunnelPortExists(
       };
       
       await tunnelManagementClient.createTunnelPort(tunnel, tunnelPort, createPortOptions);
-      console.log(`✅ Tunnel port ${remoteSSHPort} created successfully`);
+      logger.info(`✅ Tunnel port ${remoteSSHPort} created successfully`);
     } else {
-      console.log(`✅ Tunnel port ${remoteSSHPort} already exists`);
+      logger.info(`✅ Tunnel port ${remoteSSHPort} already exists`);
     }
     
   } catch (error: any) {
-    console.error(`❌ Failed to create tunnel port ${remoteSSHPort}:`, error.message);
-    console.log(`📡 Continuing anyway - tunnel might handle dynamic forwarding...`);
+    logger.error(`❌ Failed to create tunnel port ${remoteSSHPort}:`, { error: error.message });
+    logger.warn(`📡 Continuing anyway - tunnel might handle dynamic forwarding...`);
   }
 }
 
@@ -349,30 +351,30 @@ async function ensureSSHTunnelPortExists(
  */
 async function triggerPortForwardingRefresh(client: TunnelRelayTunnelClient): Promise<void> {
   try {
-    console.log(`📡 Following GitHub CLI pattern: RefreshPorts + WaitForForwardedPort`);
+    logger.info(`📡 Following GitHub CLI pattern: RefreshPorts + WaitForForwardedPort`);
     
     // Call RefreshPorts to trigger the codespace to send tcpip-forward request
     if (typeof (client as any).refreshPorts === 'function') {
       await (client as any).refreshPorts();
-      console.log(`✅ RefreshPorts() completed - should trigger tcpip-forward from codespace`);
+      logger.info(`✅ RefreshPorts() completed - should trigger tcpip-forward from codespace`);
     } else {
-      console.log(`⚠️  refreshPorts method not available, trying alternatives...`);
+      logger.warn(`⚠️  refreshPorts method not available, trying alternatives...`);
       
       // Try alternative method names
       if (typeof (client as any).RefreshPorts === 'function') {
         await (client as any).RefreshPorts();
-        console.log(`✅ RefreshPorts() (capitalized) completed`);
+        logger.info(`✅ RefreshPorts() (capitalized) completed`);
       } else if (typeof (client as any).refresh === 'function') {
         await (client as any).refresh();
-        console.log(`✅ refresh() completed`);
+        logger.info(`✅ refresh() completed`);
       } else {
-        console.log(`⚠️  No refresh methods found - relying on automatic refresh`);
+        logger.warn(`⚠️  No refresh methods found - relying on automatic refresh`);
       }
     }
     
   } catch (error: any) {
-    console.warn('⚠️  Port forwarding refresh failed:', error.message);
-    console.log('📡 Continuing anyway - tunnel might auto-refresh...');
+    logger.warn('⚠️  Port forwarding refresh failed:', { error: error.message });
+    logger.warn('📡 Continuing anyway - tunnel might auto-refresh...');
   }
 }
 
@@ -393,7 +395,7 @@ async function getUpdatedPortInfo(portService: TunnelPortService): Promise<PortI
     };
     
   } catch (error: any) {
-    console.warn('⚠️  Failed to get updated port info:', error.message);
+    logger.warn('⚠️  Failed to get updated port info:', { error: error.message });
     return { userPorts: [], managementPorts: [], allPorts: [] };
   }
 }
@@ -405,7 +407,7 @@ function cleanupConnection(
   client: TunnelRelayTunnelClient | null, 
   portService: TunnelPortService | null
 ): void {
-  console.log('🧹 Cleaning up clean tunnel connection...');
+  logger.info('🧹 Cleaning up clean tunnel connection...');
   
   if (portService) {
     portService.cleanup();
@@ -416,15 +418,15 @@ function cleanupConnection(
       // TunnelRelayTunnelClient doesn't have close method, it has disconnect
       if (typeof (client as any).disconnect === 'function') {
         (client as any).disconnect().catch((error: any) => {
-          console.error('Error disconnecting tunnel client:', error);
+          logger.error('Error disconnecting tunnel client:', { error });
         });
       }
     } catch (error) {
-      console.error('Error disconnecting tunnel client:', error);
+      logger.error('Error disconnecting tunnel client:', { error });
     }
   }
   
-  console.log('✅ Clean tunnel connection cleanup completed');
+  logger.info('✅ Clean tunnel connection cleanup completed');
 }
 
 export { TunnelPortService };

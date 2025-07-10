@@ -11,6 +11,8 @@ import * as grpc from '@grpc/grpc-js';
 import * as net from 'net';
 import { createInvoker, type CodespaceRPCInvoker } from '../rpc/CodespaceRPCInvoker.js';
 
+import { logger } from '../utils/logger';
+
 interface TunnelReference {
   tunnelId: string;
   clusterId: string;
@@ -45,12 +47,12 @@ interface RPCInvokerResult {
  */
 async function checkExistingSSHServer(tunnelClient: TunnelRelayTunnelClient): Promise<SSHServerInfo | null> {
   try {
-    console.log('🔍 === SSH SERVER DETECTION START ===');
-    console.log('Checking for existing SSH server...');
+    logger.info('🔍 === SSH SERVER DETECTION START ===');
+    logger.info('Checking for existing SSH server...');
     
     // Check if port 22 is already being forwarded with timeout
     try {
-      console.log('⏱️  Waiting for SSH port 22 forwarding (timeout: 3s)...');
+      logger.info('⏱️  Waiting for SSH port 22 forwarding (timeout: 3s)...');
       
       const timeoutPromise = new Promise<void>((_, reject) => {
         setTimeout(() => reject(new Error('SSH port detection timeout')), 3000);
@@ -61,37 +63,37 @@ async function checkExistingSSHServer(tunnelClient: TunnelRelayTunnelClient): Pr
         timeoutPromise
       ]);
       
-      console.log('✅ Port 22 is being forwarded');
-      console.log('🔍 Scanning common SSH forwarding ports...');
+      logger.info('✅ Port 22 is being forwarded');
+      logger.info('🔍 Scanning common SSH forwarding ports...');
       
       // Since waitForForwardedPort doesn't return the local port,
       // we'll need to check common forwarding ports or use a different approach
       const commonPorts = [2222, 2223, 2224, 22]; // Common SSH forwarding ports
       
       for (const port of commonPorts) {
-        console.log(`🔌 Testing SSH connectivity on port ${port}...`);
+        logger.debug(`🔌 Testing SSH connectivity on port ${port}...`);
         const isConnectable = await testPortConnection('127.0.0.1', port);
         if (isConnectable) {
-          console.log(`✅ Found accessible SSH server on port ${port}`);
-          console.log('🔍 === SSH SERVER DETECTION SUCCESS ===');
+          logger.info(`✅ Found accessible SSH server on port ${port}`);
+          logger.info('🔍 === SSH SERVER DETECTION SUCCESS ===');
           return {
             port: port,
             user: 'node', // Default user, should be detected via RPC
             isRunning: true
           };
         } else {
-          console.log(`❌ Port ${port} not accessible`);
+          logger.debug(`❌ Port ${port} not accessible`);
         }
       }
-      console.log('❌ No accessible SSH ports found despite port 22 being forwarded');
+      logger.warn('❌ No accessible SSH ports found despite port 22 being forwarded');
     } catch (error: any) {
-      console.log(`⏱️  SSH port detection timeout: ${error.message}`);
-      console.log('🔄 Proceeding to RPC phase...');
+      logger.warn(`⏱️  SSH port detection timeout: ${error.message}`);
+      logger.info('🔄 Proceeding to RPC phase...');
     }
     
     return null;
   } catch (error) {
-    console.log('No existing SSH server found or not accessible:', error);
+    logger.warn('No existing SSH server found or not accessible:', { error });
     return null;
   }
 }
@@ -132,21 +134,21 @@ async function createRPCInvokerAndStartSSH(
   let rpcInvoker: CodespaceRPCInvoker | null = null;
   
   try {
-    console.log('Creating RPC invoker for codespace internal services...');
+    logger.info('Creating RPC invoker for codespace internal services...');
     
     // Create the RPC invoker using the new implementation
     // Pass the connect access token for authentication
     rpcInvoker = await createInvoker(tunnelClient, tunnelProperties.connectAccessToken);
-    console.log('RPC invoker created successfully');
+    logger.info('RPC invoker created successfully');
     
     // Attempt to start SSH server
-    console.log('Starting SSH server via RPC...');
+    logger.info('Starting SSH server via RPC...');
     const sessionId = `tunnel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const sshResult = await rpcInvoker.startSSHServerWithOptions({
       sessionId
     });
     
-    console.log('SSH server start result:', sshResult);
+    logger.info('SSH server start result:', { sshResult });
     
     if (sshResult.success) {
       return {
@@ -165,14 +167,14 @@ async function createRPCInvokerAndStartSSH(
     }
     
   } catch (error: any) {
-    console.error('Failed to create RPC invoker and start SSH:', error.message);
+    logger.error('Failed to create RPC invoker and start SSH:', { error: error.message });
     
     // Clean up RPC invoker if it was created
     if (rpcInvoker) {
       try {
         await rpcInvoker.close();
       } catch (cleanupError) {
-        console.error('Failed to clean up RPC invoker:', cleanupError);
+        logger.error('Failed to clean up RPC invoker:', { cleanupError });
       }
     }
     
@@ -208,7 +210,7 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
   const portInfo: PortInformation = { userPorts: [], managementPorts: [], allPorts: [] };
 
   try {
-    console.log('Fetching full tunnel object for port forwarding...');
+    logger.info('Fetching full tunnel object for port forwarding...');
     const tunnel = await tunnelManagementClient.getTunnel(tunnelReference, tunnelRequestOptions);
     
     if (!tunnel) {
@@ -237,21 +239,21 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
       port.labels && port.labels.includes('InternalPort')
     ) as any[];
 
-    console.log(`Found ${portInfo.userPorts.length} user ports, ${portInfo.managementPorts.length} management ports`);
+    logger.info(`Found ${portInfo.userPorts.length} user ports, ${portInfo.managementPorts.length} management ports`);
 
     const port22Exists = existingPorts.find(p => p.portNumber === sshPort);
 
     if (!port22Exists) {
-      console.log(`Creating tunnel port ${sshPort}...`);
+      logger.info(`Creating tunnel port ${sshPort}...`);
       const tunnelPort = { portNumber: sshPort, protocol: TunnelProtocol.Ssh, sshUser: "node" };
       const createPortOptions = {
         tokenScopes: [TunnelAccessScopes.ManagePorts],
         accessToken: tunnelProperties.managePortsAccessToken,
       };
       await tunnelManagementClient.createTunnelPort(tunnel, tunnelPort, createPortOptions);
-      console.log(`Tunnel port ${sshPort} created.`);
+      logger.info(`Tunnel port ${sshPort} created.`);
     } else {
-      console.log(`Tunnel port ${sshPort} already exists.`);
+      logger.info(`Tunnel port ${sshPort} already exists.`);
     }
 
     client = new TunnelRelayTunnelClient();
@@ -259,19 +261,19 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
     let detectedSSHPort: number | null = null;
     
     // Always enable trace listening for SSH port detection (but limit logging based on debug mode)
-    console.log('🔧 Activating trace listener for SSH port detection');
+    logger.info('🔧 Activating trace listener for SSH port detection');
     client.trace = (_level: any, _eventId: any, msg: any, err?: any) => {
       // Only log detailed traces in debug mode
       if (options.debugMode) {
-        console.log(`Tunnel Client Trace: ${msg}`);
-        if (err) console.error(err);
+        logger.debug(`Tunnel Client Trace: ${msg}`);
+        if (err) logger.error(err);
       }
         
       // Parse trace messages to detect SSH port forwarding (always enabled)
       if (typeof msg === 'string') {
         // Debug: log messages that contain SSH-related ports (only in debug mode)
         if (options.debugMode && (msg.includes('port 22') || msg.includes('port 2222'))) {
-          console.log(`🔍 DEBUG: Found SSH port message: "${msg}"`);
+          logger.debug(`🔍 DEBUG: Found SSH port message: "${msg}"`);
         }
           
           // Look for ALL port forwarding patterns to understand what's happening
@@ -281,12 +283,12 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
           const localPort = parseInt(allForwardMatch1[1], 10);
           const remotePort = parseInt(allForwardMatch1[2], 10);
           if (options.debugMode) {
-            console.log(`🎯 DETECTED (All Ports): Remote port ${remotePort} forwarded to local port ${localPort}`);
+            logger.debug(`🎯 DETECTED (All Ports): Remote port ${remotePort} forwarded to local port ${localPort}`);
           }
           
           // Check if this is our SSH port
           if (remotePort === 22 || remotePort === 2222) {
-            console.log(`🎯 SSH PORT DETECTED: Remote port ${remotePort} -> local port ${localPort}`);
+            logger.info(`🎯 SSH PORT DETECTED: Remote port ${remotePort} -> local port ${localPort}`);
             detectedSSHPort = localPort;
           }
         }
@@ -296,11 +298,11 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
           if (allForwardMatch2) {
             const localPort = parseInt(allForwardMatch2[1], 10);
             const remotePort = parseInt(allForwardMatch2[2], 10);
-            console.log(`🎯 DETECTED (All Ports No Period): Remote port ${remotePort} forwarded to local port ${localPort}`);
+            logger.debug(`🎯 DETECTED (All Ports No Period): Remote port ${remotePort} forwarded to local port ${localPort}`);
             
             // Check if this is our SSH port
             if (remotePort === 22 || remotePort === 2222) {
-              console.log(`🎯 SSH PORT DETECTED: Remote port ${remotePort} -> local port ${localPort}`);
+              logger.info(`🎯 SSH PORT DETECTED: Remote port ${remotePort} -> local port ${localPort}`);
               detectedSSHPort = localPort;
             }
           }
@@ -310,11 +312,11 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
           if (allForwardMatch3) {
             const localPort = parseInt(allForwardMatch3[1], 10);
             const remotePort = parseInt(allForwardMatch3[2], 10);
-            console.log(`🎯 DETECTED (All Ports Flexible): Remote port ${remotePort} forwarded to local port ${localPort}`);
+            logger.debug(`🎯 DETECTED (All Ports Flexible): Remote port ${remotePort} forwarded to local port ${localPort}`);
             
             // Check if this is our SSH port
             if (remotePort === 22 || remotePort === 2222) {
-              console.log(`🎯 SSH PORT DETECTED: Remote port ${remotePort} -> local port ${localPort}`);
+              logger.info(`🎯 SSH PORT DETECTED: Remote port ${remotePort} -> local port ${localPort}`);
               detectedSSHPort = localPort;
             }
           }
@@ -323,12 +325,12 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
           const rpcForwardMatch = msg.match(/Forwarding from 127\.0\.0\.1:(\d+) to host port 16634\./);
           if (rpcForwardMatch) {
             const localPort = parseInt(rpcForwardMatch[1], 10);
-            console.log(`🎯 DETECTED: RPC port 16634 forwarded to local port ${localPort}`);
+            logger.debug(`🎯 DETECTED: RPC port 16634 forwarded to local port ${localPort}`);
           }
         }
       };
 
-    console.log('Connecting tunnel client for port forwarding...');
+    logger.info('Connecting tunnel client for port forwarding...');
     const updatedTunnel = await tunnelManagementClient.getTunnel(tunnelReference, tunnelRequestOptions);
     
     if (!updatedTunnel) {
@@ -341,27 +343,27 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
     };
 
     await client.connect(updatedTunnel);
-    console.log('Tunnel client connected for port forwarding.');
+    logger.info('Tunnel client connected for port forwarding.');
     
     // Extract the actual local port that SSH is forwarded to
     let extractedLocalPort = 2222; // Default fallback
     
     // CORRECTED ORDER: Follow GitHub CLI pattern
     // Step 1: Immediately try RPC connection (like GitHub CLI does)
-    console.log('🚀 === PRIMARY: RPC INVOKER PHASE ===');
+    logger.info('🚀 === PRIMARY: RPC INVOKER PHASE ===');
     const rpcResult = await createRPCInvokerAndStartSSH(client, tunnelProperties);
     
     if (rpcResult.sshServerInfo && rpcResult.sshServerInfo.isRunning) {
-      console.log(`✅ RPC SSH server started successfully:`, rpcResult.sshServerInfo);
-      console.log(`🎯 Using RPC-provided SSH port: ${rpcResult.sshServerInfo.port}`);
+      logger.info(`✅ RPC SSH server started successfully:`, { sshServerInfo: rpcResult.sshServerInfo });
+      logger.info(`🎯 Using RPC-provided SSH port: ${rpcResult.sshServerInfo.port}`);
       
       // CRITICAL: Create tunnel port for actual SSH server port and request forwarding
-      console.log('🚀 === REQUESTING SSH PORT FORWARDING ===');
+      logger.info('🚀 === REQUESTING SSH PORT FORWARDING ===');
       const remoteSSHPort = rpcResult.sshServerInfo.port;
-      console.log(`📡 SSH server is running on remote port ${remoteSSHPort}`);
+      logger.info(`📡 SSH server is running on remote port ${remoteSSHPort}`);
       
       // Step 1: Create tunnel port for the actual SSH server port (if it doesn't exist)
-      console.log(`🔧 Ensuring tunnel port exists for remote port ${remoteSSHPort}...`);
+      logger.info(`🔧 Ensuring tunnel port exists for remote port ${remoteSSHPort}...`);
       try {
         // Check if tunnel port already exists for this port
         const existingPorts = await tunnelManagementClient.listTunnelPorts(updatedTunnel, {
@@ -372,7 +374,7 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
         const portExists = existingPorts.find(p => p.portNumber === remoteSSHPort);
         
         if (!portExists) {
-          console.log(`Creating tunnel port ${remoteSSHPort} for SSH server...`);
+          logger.info(`Creating tunnel port ${remoteSSHPort} for SSH server...`);
           // CRITICAL: Use HTTP protocol instead of SSH to enable local port forwarding
           // SSH protocol ports don't get forwarded locally - they're for direct connections
           const tunnelPort = { 
@@ -386,18 +388,18 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
             accessToken: tunnelProperties.managePortsAccessToken,
           };
           await tunnelManagementClient.createTunnelPort(updatedTunnel, tunnelPort, createPortOptions);
-          console.log(`✅ Tunnel port ${remoteSSHPort} created successfully`);
+          logger.info(`✅ Tunnel port ${remoteSSHPort} created successfully`);
         } else {
-          console.log(`✅ Tunnel port ${remoteSSHPort} already exists`);
+          logger.info(`✅ Tunnel port ${remoteSSHPort} already exists`);
         }
         
       } catch (portCreateError: any) {
-        console.error(`❌ Failed to create tunnel port ${remoteSSHPort}:`, portCreateError.message);
-        console.log(`📡 Continuing anyway - tunnel might handle dynamic forwarding...`);
+        logger.error(`❌ Failed to create tunnel port ${remoteSSHPort}:`, { portCreateError: portCreateError.message });
+        logger.warn(`📡 Continuing anyway - tunnel might handle dynamic forwarding...`);
       }
       
       // Step 2: FOLLOW GITHUB CLI PATTERN - Use tunnel client APIs to trigger automatic forwarding
-      console.log(`📡 Following GitHub CLI pattern: RefreshPorts + WaitForForwardedPort`);
+      logger.info(`📡 Following GitHub CLI pattern: RefreshPorts + WaitForForwardedPort`);
       
       try {
         // GitHub CLI sequence from portforwarder.go:
@@ -406,28 +408,28 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
         // 3. RefreshPorts() - THIS TRIGGERS THE tcpip-forward!
         // 4. WaitForForwardedPort() - waits for the forwarding to be ready
         
-        console.log(`📡 Step 1: Calling RefreshPorts() to inform codespace of new port...`);
+        logger.info(`📡 Step 1: Calling RefreshPorts() to inform codespace of new port...`);
         
         // Call RefreshPorts to trigger the codespace to send tcpip-forward request
         if (typeof (client as any).refreshPorts === 'function') {
           await (client as any).refreshPorts();
-          console.log(`✅ RefreshPorts() completed - should trigger tcpip-forward from codespace`);
+          logger.info(`✅ RefreshPorts() completed - should trigger tcpip-forward from codespace`);
         } else {
-          console.log(`⚠️  refreshPorts method not available, trying alternative names...`);
+          logger.warn(`⚠️  refreshPorts method not available, trying alternative names...`);
           
           // Try alternative method names
           if (typeof (client as any).RefreshPorts === 'function') {
             await (client as any).RefreshPorts();
-            console.log(`✅ RefreshPorts() (capitalized) completed`);
+            logger.info(`✅ RefreshPorts() (capitalized) completed`);
           } else if (typeof (client as any).refresh === 'function') {
             await (client as any).refresh();
-            console.log(`✅ refresh() completed`);
+            logger.info(`✅ refresh() completed`);
           } else {
-            console.log(`⚠️  No refresh methods found - will try direct waitForForwardedPort`);
+            logger.warn(`⚠️  No refresh methods found - will try direct waitForForwardedPort`);
           }
         }
         
-        console.log(`📡 Step 2: Waiting for port ${remoteSSHPort} to be forwarded (timeout: 5s)...`);
+        logger.info(`📡 Step 2: Waiting for port ${remoteSSHPort} to be forwarded (timeout: 5s)...`);
         
         // Now wait for the forwarded port to be ready 
         const forwardingTimeout = new Promise((_, reject) => {
@@ -439,18 +441,18 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
           forwardingTimeout
         ]);
         
-        console.log(`✅ Port ${remoteSSHPort} forwarding is ready!`);
+        logger.info(`✅ Port ${remoteSSHPort} forwarding is ready!`);
         
         // Give time for the trace messages to be processed and detect the local port
-        console.log(`⏱️  Waiting 2 seconds for trace parser to detect local port...`);
+        logger.info(`⏱️  Waiting 2 seconds for trace parser to detect local port...`);
         await new Promise(resolve => setTimeout(resolve, 2000));
         
         if (detectedSSHPort) {
-          console.log(`🎯 SUCCESS: Detected SSH forwarding to local port ${detectedSSHPort}`);
+          logger.info(`🎯 SUCCESS: Detected SSH forwarding to local port ${detectedSSHPort}`);
           extractedLocalPort = detectedSSHPort;
         } else {
-          console.log(`⚠️  Port forwarding ready but no local port detected in traces`);
-          console.log(`🔧 Will attempt to find the local port via tunnel client APIs...`);
+          logger.warn(`⚠️  Port forwarding ready but no local port detected in traces`);
+          logger.info(`🔧 Will attempt to find the local port via tunnel client APIs...`);
           
           // Try to get the local port from the tunnel client's port forwarding service
           const sshSession = (client as any).sshSession;
@@ -459,12 +461,12 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
               const pfs = sshSession.getService ? sshSession.getService('PortForwardingService') : null;
               if (pfs && (pfs as any).listeners) {
                 const listeners = (pfs as any).listeners;
-                console.log(`🔍 Checking ${listeners.size} active listeners for port ${remoteSSHPort}...`);
+                logger.debug(`🔍 Checking ${listeners.size} active listeners for port ${remoteSSHPort}...`);
                 
                 for (const [localPort, listener] of listeners) {
                   const remotePort = (listener as any).remotePort;
                   if (remotePort === remoteSSHPort) {
-                    console.log(`🎯 FOUND: Local port ${localPort} forwards to remote port ${remoteSSHPort}`);
+                    logger.info(`🎯 FOUND: Local port ${localPort} forwards to remote port ${remoteSSHPort}`);
                     extractedLocalPort = localPort;
                     detectedSSHPort = localPort;
                     break;
@@ -472,81 +474,81 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
                 }
               }
             } catch (pfsError) {
-              console.log(`⚠️  Could not access port forwarding service:`, pfsError);
+              logger.warn(`⚠️  Could not access port forwarding service:`, { pfsError });
             }
           }
           
           if (!detectedSSHPort) {
-            console.log(`⚠️  Still no local port found - using remote port ${remoteSSHPort} directly`);
+            logger.warn(`⚠️  Still no local port found - using remote port ${remoteSSHPort} directly`);
             extractedLocalPort = remoteSSHPort;
           }
         }
         
         // Give time for forwarding to establish and detect in traces
-        console.log('⏱️  Waiting 3 seconds for forwarding to establish...');
+        logger.info('⏱️  Waiting 3 seconds for forwarding to establish...');
         await new Promise(resolve => setTimeout(resolve, 3000));
         
         // Check if we detected the forwarding in traces
-        console.log('🔍 Checking for port forwarding confirmation in traces...');
-        console.log(`🔍 DEBUG: Current detectedSSHPort value: ${detectedSSHPort}`);
-        console.log(`🔍 DEBUG: Looking for forwarding of remote port: ${remoteSSHPort}`);
+        logger.debug('🔍 Checking for port forwarding confirmation in traces...');
+        logger.debug(`🔍 DEBUG: Current detectedSSHPort value: ${detectedSSHPort}`);
+        logger.debug(`🔍 DEBUG: Looking for forwarding of remote port: ${remoteSSHPort}`);
         
         if (detectedSSHPort) {
-          console.log(`🎯 SUCCESS: Detected SSH forwarding to local port ${detectedSSHPort}`);
+          logger.info(`🎯 SUCCESS: Detected SSH forwarding to local port ${detectedSSHPort}`);
           extractedLocalPort = detectedSSHPort;
         } else {
-          console.log(`⚠️  No forwarding detected in traces yet for remote port ${remoteSSHPort}`);
-          console.log(`🔧 This might be normal - tunnel forwarding may work without traces`);
-          console.log(`📡 Will attempt connection to remote port ${remoteSSHPort}`);
+          logger.warn(`⚠️  No forwarding detected in traces yet for remote port ${remoteSSHPort}`);
+          logger.warn(`🔧 This might be normal - tunnel forwarding may work without traces`);
+          logger.warn(`📡 Will attempt connection to remote port ${remoteSSHPort}`);
           extractedLocalPort = remoteSSHPort;
         }
         
       } catch (forwardError: any) {
-        console.error(`❌ Failed to request port forwarding for remote port ${remoteSSHPort}:`, forwardError.message);
-        console.log(`📡 This suggests tunnel port ${remoteSSHPort} may not be properly configured`);
-        console.log(`🔧 Falling back to port 22 forwarding which we know works...`);
+        logger.error(`❌ Failed to request port forwarding for remote port ${remoteSSHPort}:`, { forwardError: forwardError.message });
+        logger.warn(`📡 This suggests tunnel port ${remoteSSHPort} may not be properly configured`);
+        logger.warn(`🔧 Falling back to port 22 forwarding which we know works...`);
         
         // Fallback: use the port 22 forwarding that we know works
         if (detectedSSHPort) {
-          console.log(`🎯 Using detected port 22 forwarding: local port ${detectedSSHPort}`);
+          logger.info(`🎯 Using detected port 22 forwarding: local port ${detectedSSHPort}`);
           extractedLocalPort = detectedSSHPort;
         } else {
-          console.log(`📡 Using default assumption that port 22 forwards to local port 2222`);
+          logger.warn(`📡 Using default assumption that port 22 forwards to local port 2222`);
           extractedLocalPort = 2222;
         }
       }
       
-      console.log('🚀 === RPC SSH INTEGRATION COMPLETE ===');
-      console.log(`SSH server running on remote port ${remoteSSHPort}, user: ${rpcResult.sshServerInfo.user}`);
-      console.log(`📡 Tunnel should forward remote port ${remoteSSHPort} to a local port`);
+      logger.info('🚀 === RPC SSH INTEGRATION COMPLETE ===');
+      logger.info(`SSH server running on remote port ${remoteSSHPort}, user: ${rpcResult.sshServerInfo.user}`);
+      logger.info(`📡 Tunnel should forward remote port ${remoteSSHPort} to a local port`);
       
       // Skip all manual detection - RPC provided the answer
     } else {
-      console.log('⚠️  RPC approach failed, falling back to SSH detection...');
-      console.log('🔍 === FALLBACK: SSH Server Detection Phase ===');
+      logger.warn('⚠️  RPC approach failed, falling back to SSH detection...');
+      logger.info('🔍 === FALLBACK: SSH Server Detection Phase ===');
       
       // Step 2: Only if RPC fails, check for existing SSH connections
       const existingSSH = await checkExistingSSHServer(client);
       
       if (existingSSH && existingSSH.isRunning) {
-        console.log(`Found existing SSH server on port ${existingSSH.port}`);
+        logger.info(`Found existing SSH server on port ${existingSSH.port}`);
         extractedLocalPort = existingSSH.port;
       } else {
-        console.log('No existing SSH server found either');
+        logger.warn('No existing SSH server found either');
         if (rpcResult.error) {
-          console.warn(`RPC setup failed: ${rpcResult.error}`);
+          logger.warn(`RPC setup failed: ${rpcResult.error}`);
         }
-        console.log('Continuing with manual tunnel detection...');
+        logger.info('Continuing with manual tunnel detection...');
       }
     }
 
     // CRITICAL: Verify SSH server is actually running and tunnel is forwarding
-    console.log('🔍 === TUNNEL VERIFICATION PHASE ===');
+    logger.info('🔍 === TUNNEL VERIFICATION PHASE ===');
     
     // Wait for SSH port 22 to be forwarded by the tunnel
     let sshForwardingConfirmed = false;
     try {
-      console.log(`⏱️  Waiting for SSH port ${sshPort} to be forwarded...`);
+      logger.info(`⏱️  Waiting for SSH port ${sshPort} to be forwarded...`);
       
       // Add a timeout to prevent hanging
       const timeoutPromise = new Promise((_, reject) => {
@@ -558,35 +560,35 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
         timeoutPromise
       ]);
       
-      console.log(`✅ SSH port ${sshPort} forwarding requested successfully`);
+      logger.info(`✅ SSH port ${sshPort} forwarding requested successfully`);
       sshForwardingConfirmed = true;
     } catch (waitError: any) {
-      console.error(`❌ Failed to wait for SSH port forwarding: ${waitError.message}`);
-      console.log('⚠️  SSH port forwarding may not be active - this could explain connection issues');
+      logger.error(`❌ Failed to wait for SSH port forwarding: ${waitError.message}`);
+      logger.warn('⚠️  SSH port forwarding may not be active - this could explain connection issues');
       // Don't throw - but flag that SSH forwarding is questionable
     }
     
     // Additional verification: check if we can detect any port forwarding at all
     if (!sshForwardingConfirmed) {
-      console.log('🔍 Checking if tunnel is forwarding ANY ports...');
+      logger.info('🔍 Checking if tunnel is forwarding ANY ports...');
       
       // Give the trace parser more time to detect actual forwarding
-      console.log('⏱️  Waiting 2 seconds for trace messages to populate...');
+      logger.info('⏱️  Waiting 2 seconds for trace messages to populate...');
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       if (detectedSSHPort) {
-        console.log(`✅ Trace detection found SSH forwarding despite waitForForwardedPort failure`);
+        logger.info(`✅ Trace detection found SSH forwarding despite waitForForwardedPort failure`);
         sshForwardingConfirmed = true;
       } else {
-        console.log('❌ No SSH port forwarding detected via traces either');
-        console.log('🚨 SSH tunnel may not be properly established');
+        logger.warn('❌ No SSH port forwarding detected via traces either');
+        logger.error('🚨 SSH tunnel may not be properly established');
       }
     }
 
     // Note: TunnelRelayTunnelClient doesn't have direct event listeners for port forwarding
     // We'll detect the port through the port forwarding service
 
-    console.log('Attempting to extract SSH port forwarding information...');
+    logger.info('Attempting to extract SSH port forwarding information...');
     
     // First, check if SSH port 22 is actually being forwarded by looking at tunnel ports
     const refreshedPorts = await tunnelManagementClient.listTunnelPorts(updatedTunnel, {
@@ -594,60 +596,60 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
       accessToken: tunnelProperties.managePortsAccessToken,
     });
     
-    console.log('Available tunnel ports:', refreshedPorts.map((p: any) => ({ 
+    logger.debug('Available tunnel ports:', { ports: refreshedPorts.map((p: any) => ({ 
       port: p.portNumber, 
       protocol: p.protocol,
       urls: p.portForwardingUris 
-    })));
+    }))});
     
     // Final verification step: test if we actually have a working SSH tunnel
-    console.log('🔍 === FINAL TUNNEL VERIFICATION ===');
-    console.log(`🔍 DEBUG: detectedSSHPort value: ${detectedSSHPort}`);
-    console.log(`🔍 DEBUG: sshForwardingConfirmed: ${sshForwardingConfirmed}`);
+    logger.info('🔍 === FINAL TUNNEL VERIFICATION ===');
+    logger.debug(`🔍 DEBUG: detectedSSHPort value: ${detectedSSHPort}`);
+    logger.debug(`🔍 DEBUG: sshForwardingConfirmed: ${sshForwardingConfirmed}`);
     
     // Use the detected SSH port from trace messages if available
     if (detectedSSHPort) {
       extractedLocalPort = detectedSSHPort;
-      console.log(`✅ Using SSH port detected from traces: ${extractedLocalPort}`);
+      logger.info(`✅ Using SSH port detected from traces: ${extractedLocalPort}`);
       
       // Test if this port is actually connectable
-      console.log(`🧪 Testing connectivity to detected SSH port ${extractedLocalPort}...`);
+      logger.info(`🧪 Testing connectivity to detected SSH port ${extractedLocalPort}...`);
       const isSSHConnectable = await testPortConnection('127.0.0.1', extractedLocalPort);
       if (isSSHConnectable) {
-        console.log(`✅ SSH port ${extractedLocalPort} is connectable!`);
-        console.log(`🎯 SSH tunnel confirmed: remote port 22 -> local port ${extractedLocalPort}`);
+        logger.info(`✅ SSH port ${extractedLocalPort} is connectable!`);
+        logger.info(`🎯 SSH tunnel confirmed: remote port 22 -> local port ${extractedLocalPort}`);
       } else {
-        console.log(`❌ SSH port ${extractedLocalPort} detected but not connectable`);
-        console.log(`⚠️  This suggests SSH server may not be running in codespace`);
+        logger.warn(`❌ SSH port ${extractedLocalPort} detected but not connectable`);
+        logger.warn(`⚠️  This suggests SSH server may not be running in codespace`);
       }
     } else {
-      console.log('⚠️ No SSH port detected from traces, trying alternative methods...');
+      logger.warn('⚠️ No SSH port detected from traces, trying alternative methods...');
       
       // Extract the actual forwarded port from the tunnel client
       const sshSession = (client as any).sshSession;
-      console.log('SSH Session available:', !!sshSession);
+      logger.debug('SSH Session available:', { available: !!sshSession });
       
       if (sshSession) {
         try {
           const pfs = sshSession.getService('PortForwardingService');
-          console.log('Port Forwarding Service available:', !!pfs);
+          logger.debug('Port Forwarding Service available:', { available: !!pfs });
           
           if (pfs && pfs.listeners && pfs.listeners.size > 0) {
-            console.log(`Available listener ports: ${Array.from(pfs.listeners.keys()).join(', ')}`);
+            logger.debug(`Available listener ports: ${Array.from(pfs.listeners.keys()).join(', ')}`);
             const listeners = Array.from(pfs.listeners.keys());
             
             // Find the port that's forwarding SSH port 22
             for (const port of listeners) {
               if (typeof port === 'number' && port > 1024 && port < 65535) {
-                console.log(`Checking if port ${port} forwards SSH...`);
+                logger.debug(`Checking if port ${port} forwards SSH...`);
                 
                 // Check if this port is forwarding to SSH port 22
                 const portInfo = pfs.listeners.get(port);
                 if (portInfo) {
-                  console.log(`Port ${port} info:`, portInfo);
+                  logger.debug(`Port ${port} info:`, { portInfo });
                   // If this is likely the SSH forwarding port, use it
                   extractedLocalPort = port;
-                  console.log(`Using detected SSH forwarding port: ${extractedLocalPort}`);
+                  logger.info(`Using detected SSH forwarding port: ${extractedLocalPort}`);
                   break;
                 }
               }
@@ -655,83 +657,83 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
             
             // If we still haven't found the right port, check for forwarded ports
             if (extractedLocalPort === 2222 && pfs.localForwardedPorts) {
-              console.log('Checking local forwarded ports...');
+              logger.debug('Checking local forwarded ports...');
               const forwardedPorts = Array.from(pfs.localForwardedPorts.values());
-              console.log('Forwarded ports details:', forwardedPorts.map((fp: any) => ({ 
+              logger.debug('Forwarded ports details:', { ports: forwardedPorts.map((fp: any) => ({ 
                 remotePort: fp.remotePort, 
                 localPort: (fp as any).localPort 
-              })));
+              }))});
               
               const sshForwarded = forwardedPorts.find((fp: any) => fp.remotePort === sshPort);
               if (sshForwarded && (sshForwarded as any).localPort) {
                 extractedLocalPort = (sshForwarded as any).localPort;
-                console.log(`Found SSH forwarded port: remote ${sshPort} -> local ${extractedLocalPort}`);
+                logger.info(`Found SSH forwarded port: remote ${sshPort} -> local ${extractedLocalPort}`);
               }
             }
           }
         } catch (pfsError: any) {
-          console.log('Could not access port forwarding service:', pfsError.message);
+          logger.warn('Could not access port forwarding service:', { pfsError: pfsError.message });
         }
       }
       
       // If we still haven't found the port, try tunnel session forwarding
       if (extractedLocalPort === 2222 && (client as any).tunnelSession) {
         try {
-          console.log('Attempting to forward port via tunnel session...');
+          logger.info('Attempting to forward port via tunnel session...');
           const forwarded = await (client as any).tunnelSession.forwardPort({ remotePort: sshPort });
           extractedLocalPort = forwarded.localPort;
-          console.log(`Port forwarded via tunnel session: remote ${sshPort} -> local ${extractedLocalPort}`);
+          logger.info(`Port forwarded via tunnel session: remote ${sshPort} -> local ${extractedLocalPort}`);
         } catch (forwardError: any) {
-          console.log('Port forwarding via session failed:', forwardError.message);
+          logger.warn('Port forwarding via session failed:', { forwardError: forwardError.message });
         }
       }
     }
     
-    console.log(`Final extracted local port for SSH: ${extractedLocalPort}`);
+    logger.info(`Final extracted local port for SSH: ${extractedLocalPort}`);
 
     // ========================================
     // COMPREHENSIVE TUNNEL CONFIGURATION DUMP
     // ========================================
-    console.log('');
-    console.log('🔍 === COMPREHENSIVE TUNNEL CONFIG DUMP ===');
+    logger.debug('');
+    logger.debug('🔍 === COMPREHENSIVE TUNNEL CONFIG DUMP ===');
     
     // 1. Tunnel Client State
-    console.log('📊 TUNNEL CLIENT STATE:');
-    console.log('- Client type:', client.constructor.name);
-    console.log('- Connected:', !!(client as any).isConnected || !!(client as any).connected);
-    console.log('- Session available:', !!(client as any).session);
-    console.log('- SSH session available:', !!(client as any).sshSession);
-    console.log('- Tunnel session available:', !!(client as any).tunnelSession);
-    console.log('- Endpoints available:', !!(client as any).endpoints);
+    logger.debug('📊 TUNNEL CLIENT STATE:');
+    logger.debug('- Client type:', { type: client.constructor.name });
+    logger.debug('- Connected:', { connected: !!(client as any).isConnected || !!(client as any).connected });
+    logger.debug('- Session available:', { available: !!(client as any).session });
+    logger.debug('- SSH session available:', { available: !!(client as any).sshSession });
+    logger.debug('- Tunnel session available:', { available: !!(client as any).tunnelSession });
+    logger.debug('- Endpoints available:', { available: !!(client as any).endpoints });
     
     // 2. SSH Session Details
     const sshSession = (client as any).sshSession;
     if (sshSession) {
-      console.log('');
-      console.log('🔐 SSH SESSION STATE:');
-      console.log('- SSH session type:', sshSession.constructor.name);
-      console.log('- Is authenticated:', !!(sshSession as any).isAuthenticated || !!(sshSession as any).authenticated);
-      console.log('- Session ID:', (sshSession as any).sessionId || 'N/A');
-      console.log('- Available methods:', Object.getOwnPropertyNames(sshSession).filter(name => typeof (sshSession as any)[name] === 'function'));
+      logger.debug('');
+      logger.debug('🔐 SSH SESSION STATE:');
+      logger.debug('- SSH session type:', { type: sshSession.constructor.name });
+      logger.debug('- Is authenticated:', { authenticated: !!(sshSession as any).isAuthenticated || !!(sshSession as any).authenticated });
+      logger.debug('- Session ID:', { id: (sshSession as any).sessionId || 'N/A' });
+      logger.debug('- Available methods:', { methods: Object.getOwnPropertyNames(sshSession).filter(name => typeof (sshSession as any)[name] === 'function') });
       
       // Port forwarding service details
       try {
         const pfs = sshSession.getService ? sshSession.getService('PortForwardingService') : null;
         if (pfs) {
-          console.log('');
-          console.log('🔌 PORT FORWARDING SERVICE:');
-          console.log('- Service type:', pfs.constructor.name);
-          console.log('- Listeners available:', !!(pfs as any).listeners);
-          console.log('- Local forwarded ports available:', !!(pfs as any).localForwardedPorts);
+          logger.debug('');
+          logger.debug('🔌 PORT FORWARDING SERVICE:');
+          logger.debug('- Service type:', { type: pfs.constructor.name });
+          logger.debug('- Listeners available:', { available: !!(pfs as any).listeners });
+          logger.debug('- Local forwarded ports available:', { available: !!(pfs as any).localForwardedPorts });
           
           if ((pfs as any).listeners) {
             const listeners = (pfs as any).listeners;
-            console.log('- Active listeners count:', listeners.size || listeners.length || 0);
-            console.log('- Listener ports:', Array.from(listeners.keys()));
+            logger.debug('- Active listeners count:', { count: listeners.size || listeners.length || 0 });
+            logger.debug('- Listener ports:', { ports: Array.from(listeners.keys()) });
             
             // Detailed listener info
             for (const [port, listener] of listeners) {
-              console.log(`  * Port ${port}:`, {
+              logger.debug(`  * Port ${port}:`, {
                 type: typeof listener,
                 remotePort: (listener as any).remotePort,
                 localPort: (listener as any).localPort,
@@ -743,11 +745,11 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
           
           if ((pfs as any).localForwardedPorts) {
             const forwardedPorts = (pfs as any).localForwardedPorts;
-            console.log('- Forwarded ports count:', forwardedPorts.size || forwardedPorts.length || 0);
+            logger.debug('- Forwarded ports count:', { count: forwardedPorts.size || forwardedPorts.length || 0 });
             if (forwardedPorts.size > 0) {
-              console.log('- Forwarded port details:');
+              logger.debug('- Forwarded port details:');
               for (const [key, port] of forwardedPorts) {
-                console.log(`  * Key ${key}:`, {
+                logger.debug(`  * Key ${key}:`, {
                   localPort: (port as any).localPort,
                   remotePort: (port as any).remotePort,
                   remoteHost: (port as any).remoteHost
@@ -756,31 +758,31 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
             }
           }
         } else {
-          console.log('- Port forwarding service: NOT AVAILABLE');
+          logger.warn('- Port forwarding service: NOT AVAILABLE');
         }
       } catch (pfsError) {
-        console.log('- Port forwarding service error:', pfsError);
+        logger.warn('- Port forwarding service error:', { pfsError });
       }
     }
     
     // 3. Tunnel Session Details (if available)
     const tunnelSession = (client as any).tunnelSession;
     if (tunnelSession) {
-      console.log('');
-      console.log('🚇 TUNNEL SESSION STATE:');
-      console.log('- Tunnel session type:', tunnelSession.constructor.name);
-      console.log('- Available methods:', Object.getOwnPropertyNames(tunnelSession).filter(name => typeof (tunnelSession as any)[name] === 'function'));
-      console.log('- Local forwarded ports available:', !!(tunnelSession as any).localForwardedPorts);
-      console.log('- Forwarded ports available:', !!(tunnelSession as any).forwardedPorts);
+      logger.debug('');
+      logger.debug('🚇 TUNNEL SESSION STATE:');
+      logger.debug('- Tunnel session type:', { type: tunnelSession.constructor.name });
+      logger.debug('- Available methods:', { methods: Object.getOwnPropertyNames(tunnelSession).filter(name => typeof (tunnelSession as any)[name] === 'function') });
+      logger.debug('- Local forwarded ports available:', { available: !!(tunnelSession as any).localForwardedPorts });
+      logger.debug('- Forwarded ports available:', { available: !!(tunnelSession as any).forwardedPorts });
     }
 
     // Get endpoint information for URL construction
     const endpoints = (client as any).endpoints || [];
-    console.log('');
-    console.log('🌐 ENDPOINT INFORMATION:');
-    console.log('- Endpoints count:', endpoints.length);
+    logger.debug('');
+    logger.debug('🌐 ENDPOINT INFORMATION:');
+    logger.debug('- Endpoints count:', { count: endpoints.length });
     endpoints.forEach((endpoint: any, index: number) => {
-      console.log(`- Endpoint ${index}:`, {
+      logger.debug(`- Endpoint ${index}:`, {
         portUriFormat: endpoint.portUriFormat,
         portSshCommandFormat: endpoint.portSshCommandFormat,
         tunnelUri: endpoint.tunnelUri,
@@ -795,16 +797,16 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
     } : null;
     
     // 4. Final tunnel management state
-    console.log('');
-    console.log('🎯 FINAL TUNNEL STATE SUMMARY:');
-    console.log('- Detected SSH local port:', detectedSSHPort);
-    console.log('- Extracted local port for SSH:', extractedLocalPort);
-    console.log('- SSH forwarding confirmed:', sshForwardingConfirmed);
-    console.log('- Endpoint info available:', !!endpointInfo);
-    console.log('- Total tunnel ports:', refreshedPorts.length);
+    logger.debug('');
+    logger.debug('🎯 FINAL TUNNEL STATE SUMMARY:');
+    logger.debug('- Detected SSH local port:', { port: detectedSSHPort });
+    logger.debug('- Extracted local port for SSH:', { port: extractedLocalPort });
+    logger.debug('- SSH forwarding confirmed:', { confirmed: sshForwardingConfirmed });
+    logger.debug('- Endpoint info available:', { available: !!endpointInfo });
+    logger.debug('- Total tunnel ports:', { count: refreshedPorts.length });
     
-    console.log('🔍 === END TUNNEL CONFIG DUMP ===');
-    console.log('');
+    logger.debug('🔍 === END TUNNEL CONFIG DUMP ===');
+    logger.debug('');
 
     // Update port info with fresh data after connection
     portInfo.allPorts = refreshedPorts as any[];
@@ -818,25 +820,25 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
     return { 
       success: true,
       localPort: extractedLocalPort, 
-      client: client,
-      tunnelClient: client, // Backwards compatibility
+      client: client as any,
+      tunnelClient: client as any, // Backwards compatibility
       portInfo: portInfo,
       endpointInfo: endpointInfo,
       tunnelManagementClient: tunnelManagementClient,
-      rpcConnection: rpcResult.rpcConnection, // Include RPC connection for SSH key access
+      rpcConnection: rpcResult.rpcConnection as any, // Include RPC connection for SSH key access
       cleanup: () => {
         try {
           if (client && typeof (client as any).disconnect === 'function') {
             (client as any).disconnect();
           }
         } catch (error) {
-          console.error('Error during cleanup:', error);
+          logger.error('Error during cleanup:', { error });
         }
       }
     };
 
   } catch (err) {
-    console.error('Failed to forward port over tunnel:', err);
+    logger.error('Failed to forward port over tunnel:', { err });
     if (client) {
       client.dispose();
     }
@@ -868,7 +870,7 @@ export async function getPortInformation(
 
     return portInfo;
   } catch (error: any) {
-    console.error('Failed to get port information:', error);
+    logger.error('Failed to get port information:', { error });
     return { 
       allPorts: [], 
       userPorts: [], 

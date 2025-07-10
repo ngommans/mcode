@@ -8,6 +8,7 @@ import { TunnelManagementHttpClient } from '@microsoft/dev-tunnels-management';
 import type { TunnelProperties } from 'tcode-shared';
 import PortForwardingManager, { PortMapping, PortForwardingState } from './PortForwardingManager.js';
 import TraceListenerService from './TraceListenerService.js';
+import { logger } from '../utils/logger';
 import net from 'net';
 
 export interface PortDetectionResult {
@@ -63,10 +64,10 @@ export class TunnelPortService {
       }
       
       this.isInitialized = true;
-      console.log('✅ TunnelPortService initialized successfully');
+      logger.info('✅ TunnelPortService initialized successfully');
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('❌ Failed to initialize TunnelPortService:', errorMessage);
+      logger.error('❌ Failed to initialize TunnelPortService:', { error: errorMessage });
       throw new Error(`TunnelPortService initialization failed: ${errorMessage}`);
     }
   }
@@ -83,13 +84,13 @@ export class TunnelPortService {
       };
     }
 
-    console.log('🔍 === RPC PORT DETECTION START ===');
+    logger.info('🔍 === RPC PORT DETECTION START ===');
     
     try {
       // Strategy 1: Check if we already have RPC port in managed state
       const existingRpcPort = this.portManager.getRpcPortMapping();
       if (existingRpcPort && existingRpcPort.isActive) {
-        console.log(`✅ Found existing RPC port mapping: ${existingRpcPort.localPort} -> ${existingRpcPort.remotePort}`);
+        logger.info(`✅ Found existing RPC port mapping: ${existingRpcPort.localPort} -> ${existingRpcPort.remotePort}`);
         return {
           success: true,
           localPort: existingRpcPort.localPort,
@@ -99,14 +100,14 @@ export class TunnelPortService {
       }
 
       // Strategy 2: Use enhanced waitForForwardedPort
-      console.log('🎯 Attempting enhanced waitForForwardedPort for RPC...');
+      logger.info('🎯 Attempting enhanced waitForForwardedPort for RPC...');
       const rpcMapping = await this.portManager.waitForForwardedPortWithMapping(
         16634, 
         this.options.portDetectionTimeoutMs
       );
       
       if (rpcMapping) {
-        console.log(`✅ RPC port detected via enhanced wait: ${rpcMapping.localPort} -> ${rpcMapping.remotePort}`);
+        logger.info(`✅ RPC port detected via enhanced wait: ${rpcMapping.localPort} -> ${rpcMapping.remotePort}`);
         return {
           success: true,
           localPort: rpcMapping.localPort,
@@ -117,10 +118,10 @@ export class TunnelPortService {
 
       // Strategy 3: Fallback to port scanning
       if (this.options.fallbackToPortScanning) {
-        console.log('🔍 Falling back to port scanning for RPC...');
+        logger.info('🔍 Falling back to port scanning for RPC...');
         const scannedPort = await this.scanForRpcPort();
         if (scannedPort) {
-          console.log(`✅ RPC port found via scanning: ${scannedPort}`);
+          logger.info(`✅ RPC port found via scanning: ${scannedPort}`);
           return {
             success: true,
             localPort: scannedPort,
@@ -131,10 +132,10 @@ export class TunnelPortService {
 
       // Strategy 4: Trace parsing fallback (if enabled)
       if (this.options.enableTraceParsingFallback && this.traceListener) {
-        console.log('⚠️  Falling back to trace parsing for RPC detection...');
+        logger.warn('⚠️  Falling back to trace parsing for RPC detection...');
         const tracedPort = this.extractRpcPortFromTraces();
         if (tracedPort) {
-          console.log(`✅ RPC port found via trace parsing: ${tracedPort}`);
+          logger.info(`✅ RPC port found via trace parsing: ${tracedPort}`);
           return {
             success: true,
             localPort: tracedPort,
@@ -151,7 +152,7 @@ export class TunnelPortService {
 
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('❌ RPC port detection failed:', errorMessage);
+      logger.error('❌ RPC port detection failed:', { error: errorMessage });
       return {
         success: false,
         error: errorMessage,
@@ -172,13 +173,13 @@ export class TunnelPortService {
       };
     }
 
-    console.log('🔍 === SSH PORT DETECTION START ===');
+    logger.info('🔍 === SSH PORT DETECTION START ===');
     
     try {
       // Strategy 1: Check managed state for SSH port
       const existingSshPort = this.portManager.getSshPortMapping();
       if (existingSshPort && existingSshPort.isActive) {
-        console.log(`✅ Found existing SSH port mapping: ${existingSshPort.localPort} -> ${existingSshPort.remotePort}`);
+        logger.info(`✅ Found existing SSH port mapping: ${existingSshPort.localPort} -> ${existingSshPort.remotePort}`);
         return {
           success: true,
           localPort: existingSshPort.localPort,
@@ -191,14 +192,14 @@ export class TunnelPortService {
       const sshPorts = [2222, 22]; // Try 2222 first as it's more common for codespaces
       
       for (const remotePort of sshPorts) {
-        console.log(`🎯 Checking SSH port ${remotePort} with enhanced wait...`);
+        logger.info(`🎯 Checking SSH port ${remotePort} with enhanced wait...`);
         const sshMapping = await this.portManager.waitForForwardedPortWithMapping(
           remotePort,
           this.options.portDetectionTimeoutMs
         );
         
         if (sshMapping) {
-          console.log(`✅ SSH port detected via enhanced wait: ${sshMapping.localPort} -> ${sshMapping.remotePort}`);
+          logger.info(`✅ SSH port detected via enhanced wait: ${sshMapping.localPort} -> ${sshMapping.remotePort}`);
           return {
             success: true,
             localPort: sshMapping.localPort,
@@ -210,10 +211,10 @@ export class TunnelPortService {
 
       // Strategy 3: Fallback to port scanning
       if (this.options.fallbackToPortScanning) {
-        console.log('🔍 Falling back to port scanning for SSH...');
+        logger.info('🔍 Falling back to port scanning for SSH...');
         const scannedPort = await this.scanForSshPort();
         if (scannedPort) {
-          console.log(`✅ SSH port found via scanning: ${scannedPort}`);
+          logger.info(`✅ SSH port found via scanning: ${scannedPort}`);
           return {
             success: true,
             localPort: scannedPort,
@@ -224,10 +225,10 @@ export class TunnelPortService {
 
       // Strategy 4: Trace parsing fallback (if enabled)
       if (this.options.enableTraceParsingFallback && this.traceListener) {
-        console.log('⚠️  Falling back to trace parsing for SSH detection...');
+        logger.warn('⚠️  Falling back to trace parsing for SSH detection...');
         const tracedPort = this.extractSshPortFromTraces();
         if (tracedPort) {
-          console.log(`✅ SSH port found via trace parsing: ${tracedPort}`);
+          logger.info(`✅ SSH port found via trace parsing: ${tracedPort}`);
           return {
             success: true,
             localPort: tracedPort,
@@ -244,7 +245,7 @@ export class TunnelPortService {
 
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('❌ SSH port detection failed:', errorMessage);
+      logger.error('❌ SSH port detection failed:', { error: errorMessage });
       return {
         success: false,
         error: errorMessage,
@@ -279,7 +280,7 @@ export class TunnelPortService {
    */
   async requestPortForwarding(remotePort: number): Promise<PortDetectionResult> {
     try {
-      console.log(`📡 Requesting port forwarding for remote port ${remotePort}...`);
+      logger.info(`📡 Requesting port forwarding for remote port ${remotePort}...`);
       
       const mapping = await this.portManager.waitForForwardedPortWithMapping(
         remotePort,
@@ -350,9 +351,9 @@ export class TunnelPortService {
     const commonPorts = [16635, 16636, 16637, 16638, 16639, 16640];
     
     for (const port of commonPorts) {
-      console.log(`🔌 Testing RPC connectivity on port ${port}...`);
+      logger.debug(`🔌 Testing RPC connectivity on port ${port}...`);
       if (await this.testPortConnection('127.0.0.1', port)) {
-        console.log(`✅ Found accessible RPC port: ${port}`);
+        logger.info(`✅ Found accessible RPC port: ${port}`);
         return port;
       }
     }
@@ -368,9 +369,9 @@ export class TunnelPortService {
     const sshPorts = [2222, 2223, 2224, 22];
     
     for (const port of sshPorts) {
-      console.log(`🔌 Testing SSH connectivity on port ${port}...`);
+      logger.debug(`🔌 Testing SSH connectivity on port ${port}...`);
       if (await this.testPortConnection('127.0.0.1', port)) {
-        console.log(`✅ Found accessible SSH port: ${port}`);
+        logger.info(`✅ Found accessible SSH port: ${port}`);
         return port;
       }
     }
@@ -422,16 +423,16 @@ export class TunnelPortService {
    */
   enableTraceListener(): void {
     if (!this.tunnelClient) {
-      console.warn('⚠️  Cannot enable trace listener - tunnel client not available');
+      logger.warn('⚠️  Cannot enable trace listener - tunnel client not available');
       return;
     }
 
     if (this.traceListener) {
-      console.log('⚠️  Trace listener already enabled');
+      logger.warn('⚠️  Trace listener already enabled');
       return;
     }
 
-    console.log('🎧 Enabling trace listener for debug and fallback detection...');
+    logger.info('🎧 Enabling trace listener for debug and fallback detection...');
     this.traceListener = new TraceListenerService({
       enablePortParsing: true,
       enableConnectionLogging: true,
@@ -441,7 +442,7 @@ export class TunnelPortService {
     });
 
     this.traceListener.attachToClient(this.tunnelClient);
-    console.log('✅ Trace listener enabled successfully');
+    logger.info('✅ Trace listener enabled successfully');
   }
 
   /**
@@ -449,14 +450,14 @@ export class TunnelPortService {
    */
   disableTraceListener(): void {
     if (!this.traceListener || !this.tunnelClient) {
-      console.log('⚠️  Trace listener not enabled or tunnel client not available');
+      logger.warn('⚠️  Trace listener not enabled or tunnel client not available');
       return;
     }
 
-    console.log('🔌 Disabling trace listener...');
+    logger.info('🔌 Disabling trace listener...');
     this.traceListener.detachFromClient(this.tunnelClient);
     this.traceListener = undefined;
-    console.log('✅ Trace listener disabled successfully');
+    logger.info('✅ Trace listener disabled successfully');
   }
 
   /**

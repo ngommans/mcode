@@ -7,6 +7,7 @@ import { TunnelRelayTunnelClient } from '@microsoft/dev-tunnels-connections';
 import { TunnelManagementHttpClient } from '@microsoft/dev-tunnels-management';
 import { TunnelAccessScopes } from '@microsoft/dev-tunnels-contracts';
 import type { TunnelProperties } from 'tcode-shared';
+import { logger } from '../utils/logger';
 
 export interface PortMapping {
   localPort: number;
@@ -59,7 +60,7 @@ class PortForwardingManager {
     tunnelManager: TunnelManagementHttpClient,
     tunnelProperties: TunnelProperties
   ): Promise<void> {
-    console.log('🚀 === PORT FORWARDING MANAGER INITIALIZATION ===');
+    logger.info('🚀 === PORT FORWARDING MANAGER INITIALIZATION ===');
     
     this.tunnelClient = tunnelClient;
     this.tunnelManager = tunnelManager;
@@ -76,13 +77,13 @@ class PortForwardingManager {
       this.setupTunnelChangeMonitoring();
       
       this.isInitialized = true;
-      console.log('✅ Port forwarding manager initialized successfully');
+      logger.info('✅ Port forwarding manager initialized successfully');
       
       // Notify all callbacks of initial state
       this.notifyStateChange();
       
     } catch (error: any) {
-      console.error('❌ Failed to initialize port forwarding manager:', error.message);
+      logger.error('❌ Failed to initialize port forwarding manager:', error);
       throw error;
     }
   }
@@ -91,7 +92,7 @@ class PortForwardingManager {
    * Query initial port state from all available sources
    */
   private async queryInitialPortState(): Promise<void> {
-    console.log('🔍 Querying initial port state from multiple sources...');
+    logger.info('🔍 Querying initial port state from multiple sources...');
     
     const detectedPorts: PortMapping[] = [];
 
@@ -99,31 +100,31 @@ class PortForwardingManager {
       // Source 1: Check tunnel public arrays first (simplest)
       const publicArrayPorts = await this.queryPublicTunnelArrays();
       if (publicArrayPorts.length > 0) {
-        console.log(`✅ Found ${publicArrayPorts.length} ports from tunnel public arrays`);
+        logger.info(`✅ Found ${publicArrayPorts.length} ports from tunnel public arrays`);
         detectedPorts.push(...publicArrayPorts);
       }
 
       // Source 2: Query tunnel management API
       const managementPorts = await this.queryTunnelManagementPorts();
       if (managementPorts.length > 0) {
-        console.log(`✅ Found ${managementPorts.length} ports from management API`);
+        logger.info(`✅ Found ${managementPorts.length} ports from management API`);
         detectedPorts.push(...managementPorts);
       }
 
       // Source 3: Check PortForwardingService listeners
       const listenerPorts = await this.queryPortForwardingServiceListeners();
       if (listenerPorts.length > 0) {
-        console.log(`✅ Found ${listenerPorts.length} ports from PortForwardingService listeners`);
+        logger.info(`✅ Found ${listenerPorts.length} ports from PortForwardingService listeners`);
         detectedPorts.push(...listenerPorts);
       }
 
       // Merge and deduplicate ports
       this.mergePortMappings(detectedPorts);
       
-      console.log(`📊 Initial port state: ${this.state.userPorts.length} user ports, ${this.state.managementPorts.length} management ports`);
+      logger.info(`📊 Initial port state: ${this.state.userPorts.length} user ports, ${this.state.managementPorts.length} management ports`);
       
     } catch (error: any) {
-      console.warn('⚠️  Some port detection methods failed during initialization:', error.message);
+      logger.warn('⚠️  Some port detection methods failed during initialization:', { error: error.message });
     }
   }
 
@@ -134,14 +135,14 @@ class PortForwardingManager {
     if (!this.tunnelClient) return [];
     
     try {
-      console.log('🔍 Checking tunnel public arrays...');
+      logger.info('🔍 Checking tunnel public arrays...');
       
       const detectedPorts: PortMapping[] = [];
       const client = this.tunnelClient as any;
       
       // Check connectedTunnel ports
       if (client.connectedTunnel?.ports) {
-        console.log('📋 Found connectedTunnel.ports array');
+        logger.info('📋 Found connectedTunnel.ports array');
         const ports = client.connectedTunnel.ports;
         for (const port of ports) {
           if (port.portNumber && port.portForwardingUris?.length) {
@@ -161,7 +162,7 @@ class PortForwardingManager {
 
       // Check session forwarded ports
       if (client.session?.forwardedPorts) {
-        console.log('📋 Found session.forwardedPorts');
+        logger.info('📋 Found session.forwardedPorts');
         // This might be a Map or array depending on implementation
         const forwardedPorts = client.session.forwardedPorts;
         if (forwardedPorts instanceof Map) {
@@ -180,7 +181,7 @@ class PortForwardingManager {
       return detectedPorts;
       
     } catch (error: any) {
-      console.warn('⚠️  Failed to query tunnel public arrays:', error.message);
+      logger.warn('⚠️  Failed to query tunnel public arrays:', { error: error.message });
       return [];
     }
   }
@@ -192,7 +193,7 @@ class PortForwardingManager {
     if (!this.tunnelManager || !this.tunnelProperties) return [];
     
     try {
-      console.log('🔍 Querying tunnel management API...');
+      logger.info('🔍 Querying tunnel management API...');
       
       const tunnel = {
         tunnelId: this.tunnelProperties.tunnelId,
@@ -224,7 +225,7 @@ class PortForwardingManager {
       return detectedPorts;
       
     } catch (error: any) {
-      console.warn('⚠️  Failed to query tunnel management ports:', error.message);
+      logger.warn('⚠️  Failed to query tunnel management ports:', { error: error.message });
       return [];
     }
   }
@@ -236,13 +237,13 @@ class PortForwardingManager {
     if (!this.tunnelClient) return [];
     
     try {
-      console.log('🔍 Querying PortForwardingService listeners...');
+      logger.info('🔍 Querying PortForwardingService listeners...');
       
       const client = this.tunnelClient as any;
       const tunnelSession = client.tunnelSession;
       
       if (!tunnelSession) {
-        console.log('⚠️  No tunnel session available');
+        logger.warn('⚠️  No tunnel session available');
         return [];
       }
       
@@ -251,22 +252,22 @@ class PortForwardingManager {
       try {
         portForwardingService = tunnelSession.getService('PortForwardingService');
       } catch (serviceError) {
-        console.log('⚠️  PortForwardingService not available:', serviceError);
+        logger.warn('⚠️  PortForwardingService not available:', { serviceError });
         return [];
       }
       
       if (!portForwardingService || !portForwardingService.listeners) {
-        console.log('⚠️  No listeners available on PortForwardingService');
+        logger.warn('⚠️  No listeners available on PortForwardingService');
         return [];
       }
       
       const detectedPorts: PortMapping[] = [];
       const listeners = portForwardingService.listeners;
       
-      console.log(`📋 Found ${listeners.size} active listeners`);
+      logger.info(`📋 Found ${listeners.size} active listeners`);
       
       for (const [localPort, remoteInfo] of listeners) {
-        console.log(`📍 Listener: local ${localPort} -> remote ${remoteInfo.remotePort || remoteInfo.port}`);
+        logger.info(`📍 Listener: local ${localPort} -> remote ${remoteInfo.remotePort || remoteInfo.port}`);
         
         detectedPorts.push({
           localPort: typeof localPort === 'number' ? localPort : parseInt(localPort, 10),
@@ -280,7 +281,7 @@ class PortForwardingManager {
       return detectedPorts;
       
     } catch (error: any) {
-      console.warn('⚠️  Failed to query PortForwardingService listeners:', error.message);
+      logger.warn('⚠️  Failed to query PortForwardingService listeners:', { error: error.message });
       return [];
     }
   }
@@ -292,7 +293,7 @@ class PortForwardingManager {
     if (!this.tunnelClient) return;
     
     try {
-      console.log('🎧 Setting up real-time port forwarding listeners...');
+      logger.info('🎧 Setting up real-time port forwarding listeners...');
       
       const client = this.tunnelClient as any;
       const tunnelSession = client.tunnelSession;
@@ -305,22 +306,22 @@ class PortForwardingManager {
             // Set up event listeners for port changes
             if (typeof portForwardingService.on === 'function') {
               portForwardingService.on('portAdded', (localPort: number, remoteInfo: any) => {
-                console.log(`🎯 Port added: ${localPort} -> ${remoteInfo.remotePort || remoteInfo.port}`);
+                logger.info(`🎯 Port added: ${localPort} -> ${remoteInfo.remotePort || remoteInfo.port}`);
                 this.handlePortAdded(localPort, remoteInfo);
               });
               
               portForwardingService.on('portRemoved', (localPort: number) => {
-                console.log(`🗑️  Port removed: ${localPort}`);
+                logger.info(`🗑️  Port removed: ${localPort}`);
                 this.handlePortRemoved(localPort);
               });
               
-              console.log('✅ Port forwarding event listeners set up');
+              logger.info('✅ Port forwarding event listeners set up');
             } else {
-              console.log('⚠️  PortForwardingService does not support event listeners');
+              logger.warn('⚠️  PortForwardingService does not support event listeners');
             }
           }
         } catch (serviceError) {
-          console.log('⚠️  Could not set up PortForwardingService listeners:', serviceError);
+          logger.warn('⚠️  Could not set up PortForwardingService listeners:', { serviceError });
         }
       }
       
@@ -328,7 +329,7 @@ class PortForwardingManager {
       this.setupPollingFallback();
       
     } catch (error: any) {
-      console.warn('⚠️  Failed to set up port forwarding listeners:', error.message);
+      logger.warn('⚠️  Failed to set up port forwarding listeners:', { error: error.message });
     }
   }
 
@@ -341,7 +342,7 @@ class PortForwardingManager {
       try {
         await this.refreshPortState();
       } catch (error: any) {
-        console.error('⚠️  Port state refresh failed:', error.message);
+        logger.error('⚠️  Port state refresh failed:', error);
       }
     }, 30000);
   }
@@ -357,7 +358,7 @@ class PortForwardingManager {
     // Monitor tunnel connection changes
     if (typeof client.on === 'function') {
       client.on('tunnelChanged', async () => {
-        console.log('🔄 Tunnel changed - refreshing port state');
+        logger.info('🔄 Tunnel changed - refreshing port state');
         await this.refreshPortState();
       });
     }
@@ -373,7 +374,7 @@ class PortForwardingManager {
     if (!this.tunnelClient) return null;
     
     try {
-      console.log(`⏱️  Waiting for forwarded port ${remotePort} (timeout: ${timeoutMs}ms)...`);
+      logger.info(`⏱️  Waiting for forwarded port ${remotePort} (timeout: ${timeoutMs}ms)...`);
       
       const timeoutPromise = new Promise<void>((_, reject) => {
         setTimeout(() => reject(new Error('Port forwarding timeout')), timeoutMs);
@@ -387,7 +388,7 @@ class PortForwardingManager {
       
       // Check if result is a number (local port) or just success boolean
       if (typeof result === 'number') {
-        console.log(`✅ WaitForForwardedPort returned local port: ${result}`);
+        logger.info(`✅ WaitForForwardedPort returned local port: ${result}`);
         return {
           localPort: result,
           remotePort,
@@ -398,7 +399,7 @@ class PortForwardingManager {
       }
       
       // Fallback: query current port state to find the mapping
-      console.log('🔍 WaitForForwardedPort succeeded, querying for local port mapping...');
+      logger.info('🔍 WaitForForwardedPort succeeded, querying for local port mapping...');
       await this.refreshPortState();
       
       // Find the port in our current state
@@ -406,15 +407,15 @@ class PortForwardingManager {
         .find(p => p.remotePort === remotePort && p.isActive);
       
       if (mapping) {
-        console.log(`✅ Found port mapping: ${mapping.localPort} -> ${remotePort}`);
+        logger.info(`✅ Found port mapping: ${mapping.localPort} -> ${remotePort}`);
         return mapping;
       }
       
-      console.log(`⚠️  Port ${remotePort} forwarded but local mapping not found`);
+      logger.warn(`⚠️  Port ${remotePort} forwarded but local mapping not found`);
       return null;
       
     } catch (error: any) {
-      console.log(`❌ WaitForForwardedPort failed for port ${remotePort}:`, error.message);
+      logger.warn(`❌ WaitForForwardedPort failed for port ${remotePort}:`, { error: error.message });
       return null;
     }
   }
@@ -461,7 +462,7 @@ class PortForwardingManager {
     try {
       await this.queryInitialPortState();
     } catch (error: any) {
-      console.error('Failed to refresh port state:', error.message);
+      logger.error('Failed to refresh port state:', error);
     }
   }
 
@@ -548,7 +549,7 @@ class PortForwardingManager {
       try {
         callback(this.getPortState());
       } catch (error: any) {
-        console.error('Error in port state change callback:', error.message);
+        logger.error('Error in port state change callback:', error);
       }
     }
   }

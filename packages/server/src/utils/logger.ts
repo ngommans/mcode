@@ -41,6 +41,7 @@ class Logger {
     } else if (level === 'warn') {
       console.warn(output);
     } else {
+      // eslint-disable-next-line no-console -- logger is expected to log to console
       console.log(output);
     }
   }

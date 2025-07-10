@@ -4,6 +4,7 @@
  */
 
 import { TunnelRelayTunnelClient } from '@microsoft/dev-tunnels-connections';
+import { logger } from '../utils/logger';
 
 export interface TraceMessage {
   timestamp: Date;
@@ -40,7 +41,7 @@ export interface TraceListenerOptions {
 export class TraceListenerService {
   private traces: TraceMessage[] = [];
   private options: Required<TraceListenerOptions>;
-  private originalTraceFunctions = new WeakMap<any, Function>();
+  private originalTraceFunctions = new WeakMap<any, (...args: any[]) => void>();
   private attachedClients = new Set<TunnelRelayTunnelClient>();
 
   constructor(options: TraceListenerOptions = {}) {
@@ -59,11 +60,11 @@ export class TraceListenerService {
    */
   attachToClient(client: TunnelRelayTunnelClient): void {
     if (this.attachedClients.has(client)) {
-      console.log('⚠️  Trace listener already attached to this client');
+      logger.warn('⚠️  Trace listener already attached to this client');
       return;
     }
 
-    console.log('🎧 Attaching trace listener to tunnel client...');
+    logger.info('🎧 Attaching trace listener to tunnel client...');
 
     // Store original trace function
     const originalTrace = client.trace;
@@ -81,7 +82,7 @@ export class TraceListenerService {
     };
 
     this.attachedClients.add(client);
-    console.log('✅ Trace listener attached successfully');
+    logger.info('✅ Trace listener attached successfully');
   }
 
   /**
@@ -89,11 +90,11 @@ export class TraceListenerService {
    */
   detachFromClient(client: TunnelRelayTunnelClient): void {
     if (!this.attachedClients.has(client)) {
-      console.log('⚠️  Trace listener not attached to this client');
+      logger.warn('⚠️  Trace listener not attached to this client');
       return;
     }
 
-    console.log('🔌 Detaching trace listener from tunnel client...');
+    logger.info('🔌 Detaching trace listener from tunnel client...');
 
     // Restore original trace function
     const originalTrace = this.originalTraceFunctions.get(client);
@@ -103,7 +104,7 @@ export class TraceListenerService {
     }
 
     this.attachedClients.delete(client);
-    console.log('✅ Trace listener detached successfully');
+    logger.info('✅ Trace listener detached successfully');
   }
 
   /**
@@ -128,7 +129,7 @@ export class TraceListenerService {
       this.logTraceMessage(traceMessage);
 
     } catch (error: any) {
-      console.error('⚠️  Error processing trace message:', error.message);
+      logger.error('⚠️  Error processing trace message:', error);
     }
   }
 
@@ -379,9 +380,9 @@ export class TraceListenerService {
   private logTraceMessage(traceMessage: TraceMessage): void {
     // Only log to console in debug mode or for important messages
     if (traceMessage.error || traceMessage.level === 'error') {
-      console.error(`🔴 [${traceMessage.category}] ${traceMessage.message}`, traceMessage.error);
+      logger.error(`🔴 [${traceMessage.category}] ${traceMessage.message}`, traceMessage.error);
     } else if (traceMessage.category === 'port_forwarding') {
-      console.log(`🔌 [PORT] ${traceMessage.message}`);
+      logger.info(`🔌 [PORT] ${traceMessage.message}`);
     }
     // Other categories are captured but not logged to reduce noise
   }
@@ -440,7 +441,7 @@ export class TraceListenerService {
    */
   clearTraces(): void {
     this.traces = [];
-    console.log('🗑️  Trace history cleared');
+    logger.info('🗑️  Trace history cleared');
   }
 
   /**
@@ -485,7 +486,7 @@ export class TraceListenerService {
     for (const client of this.attachedClients) {
       this.detachFromClient(client);
     }
-    console.log('🧹 Detached trace listener from all clients');
+    logger.info('🧹 Detached trace listener from all clients');
   }
 }
 

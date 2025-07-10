@@ -5,10 +5,13 @@
 
 import { connectToTunnel } from '../tunnel/TunnelModuleClean.js';
 import type { TunnelProperties, TunnelConnectionResult } from 'tcode-shared';
+import * as net from 'net';
+
+import { logger } from '../utils/logger';
 
 async function testCleanTunnelConnection(): Promise<void> {
-  console.log('🧪 === TESTING CLEAN TUNNEL CONNECTION ARCHITECTURE ===');
-  console.log('This test will use the new API-based port detection instead of trace parsing');
+  logger.info('🧪 === TESTING CLEAN TUNNEL CONNECTION ARCHITECTURE ===');
+  logger.info('This test will use the new API-based port detection instead of trace parsing');
   
   // Mock tunnel properties - replace with real values for testing
   const mockTunnelProperties: TunnelProperties = {
@@ -25,92 +28,92 @@ async function testCleanTunnelConnection(): Promise<void> {
     version: '1.0.0'
   };
 
-  console.log('🔧 Configuration:');
-  console.log(`  - Tunnel ID: ${mockTunnelProperties.tunnelId}`);
-  console.log(`  - Cluster ID: ${mockTunnelProperties.clusterId}`);
-  console.log(`  - Service URI: ${mockTunnelProperties.serviceUri}`);
-  console.log(`  - Connect Token: ${mockTunnelProperties.connectAccessToken ? '[PROVIDED]' : '[MISSING]'}`);
-  console.log(`  - Manage Ports Token: ${mockTunnelProperties.managePortsAccessToken ? '[PROVIDED]' : '[MISSING]'}`);
+  logger.info('🔧 Configuration:');
+  logger.info(`  - Tunnel ID: ${mockTunnelProperties.tunnelId}`);
+  logger.info(`  - Cluster ID: ${mockTunnelProperties.clusterId}`);
+  logger.info(`  - Service URI: ${mockTunnelProperties.serviceUri}`);
+  logger.info(`  - Connect Token: ${mockTunnelProperties.connectAccessToken ? '[PROVIDED]' : '[MISSING]'}`);
+  logger.info(`  - Manage Ports Token: ${mockTunnelProperties.managePortsAccessToken ? '[PROVIDED]' : '[MISSING]'}`);
 
   if (!process.env.CONNECT_TOKEN) {
-    console.log('⚠️  WARNING: Using mock tunnel properties. Set environment variables for real testing:');
-    console.log('  - TUNNEL_ID, CLUSTER_ID, CONNECT_TOKEN, MANAGE_PORTS_TOKEN, SERVICE_URI, DOMAIN');
-    console.log('');
+    logger.warn('⚠️  WARNING: Using mock tunnel properties. Set environment variables for real testing:');
+    logger.warn('  - TUNNEL_ID, CLUSTER_ID, CONNECT_TOKEN, MANAGE_PORTS_TOKEN, SERVICE_URI, DOMAIN');
+    logger.info('');
   }
 
   try {
-    console.log('🚀 Starting clean tunnel connection test...');
+    logger.info('🚀 Starting clean tunnel connection test...');
     
     const startTime = Date.now();
     const result: TunnelConnectionResult = await connectToTunnel(userAgent, mockTunnelProperties);
     const duration = Date.now() - startTime;
     
-    console.log(`⏱️  Connection attempt completed in ${duration}ms`);
-    console.log('');
+    logger.info(`⏱️  Connection attempt completed in ${duration}ms`);
+    logger.info('');
     
     if (result.success) {
-      console.log('✅ === TUNNEL CONNECTION SUCCESSFUL ===');
-      console.log(`🔌 Tunnel client: ${result.client ? 'Connected' : 'Not available'}`);
-      console.log(`🗼 SSH port: ${result.sshPort || 'Not detected'}`);
-      console.log(`🤖 RPC connection: ${result.rpcConnection ? 'Active' : 'Not available'}`);
+      logger.info('✅ === TUNNEL CONNECTION SUCCESSFUL ===');
+      logger.info(`🔌 Tunnel client: ${result.client ? 'Connected' : 'Not available'}`);
+      logger.info(`🗼 SSH port: ${result.sshPort || 'Not detected'}`);
+      logger.info(`🤖 RPC connection: ${result.rpcConnection ? 'Active' : 'Not available'}`);
       
-      console.log('📊 Port Information:');
-      console.log(`  - Total ports: ${result.portInfo.allPorts.length}`);
-      console.log(`  - User ports: ${result.portInfo.userPorts.length}`);
-      console.log(`  - Management ports: ${result.portInfo.managementPorts.length}`);
+      logger.info('📊 Port Information:');
+      logger.info(`  - Total ports: ${result.portInfo.allPorts.length}`);
+      logger.info(`  - User ports: ${result.portInfo.userPorts.length}`);
+      logger.info(`  - Management ports: ${result.portInfo.managementPorts.length}`);
       
       if (result.portInfo.allPorts.length > 0) {
-        console.log('📋 Port Details:');
+        logger.info('📋 Port Details:');
         for (const port of result.portInfo.allPorts) {
-          console.log(`  - Port ${(port as any).remotePort || port.portNumber}: ${(port as any).localPort || 'local port unknown'} (${(port as any).protocol || 'unknown protocol'})`);
+          logger.info(`  - Port ${(port as any).remotePort || port.portNumber}: ${(port as any).localPort || 'local port unknown'} (${(port as any).protocol || 'unknown protocol'})`);
         }
       }
       
       // Test RPC connection if available
       if (result.rpcConnection) {
-        console.log('');
-        console.log('🧪 Testing RPC connection...');
+        logger.info('');
+        logger.info('🧪 Testing RPC connection...');
         try {
           // Test keep-alive
           (result.rpcConnection as any).keepAlive();
-          console.log('✅ RPC keep-alive test successful');
+          logger.info('✅ RPC keep-alive test successful');
         } catch (rpcError: any) {
-          console.warn(`⚠️  RPC test failed: ${rpcError.message}`);
+          logger.warn(`⚠️  RPC test failed: ${rpcError.message}`);
         }
       }
       
       // Test SSH connection if port is available
       if (result.sshPort) {
-        console.log('');
-        console.log('🧪 Testing SSH port connectivity...');
+        logger.info('');
+        logger.info('🧪 Testing SSH port connectivity...');
         const sshConnectable = await testPortConnection('127.0.0.1', result.sshPort);
-        console.log(`${sshConnectable ? '✅' : '❌'} SSH port ${result.sshPort} ${sshConnectable ? 'is' : 'is not'} connectable`);
+        logger.info(`${sshConnectable ? '✅' : '❌'} SSH port ${result.sshPort} ${sshConnectable ? 'is' : 'is not'} connectable`);
       }
       
-      console.log('');
-      console.log('🧹 Cleaning up connection...');
+      logger.info('');
+      logger.info('🧹 Cleaning up connection...');
       result.cleanup();
-      console.log('✅ Cleanup completed');
+      logger.info('✅ Cleanup completed');
       
     } else {
-      console.log('❌ === TUNNEL CONNECTION FAILED ===');
-      console.log(`Error: ${result.error}`);
+      logger.error('❌ === TUNNEL CONNECTION FAILED ===');
+      logger.error(`Error: ${result.error}`);
       
       if (result.client) {
-        console.log('⚠️  Partial connection established - cleaning up...');
+        logger.warn('⚠️  Partial connection established - cleaning up...');
         result.cleanup();
       }
     }
     
   } catch (error: any) {
-    console.error('💥 === TUNNEL CONNECTION TEST CRASHED ===');
-    console.error(`Error: ${error.message}`);
-    console.error('Stack trace:');
-    console.error(error.stack);
+    logger.error('💥 === TUNNEL CONNECTION TEST CRASHED ===');
+    logger.error(`Error: ${error.message}`);
+    logger.error('Stack trace:');
+    logger.error(error.stack);
   }
   
-  console.log('');
-  console.log('🏁 Clean tunnel connection test completed');
+  logger.info('');
+  logger.info('🏁 Clean tunnel connection test completed');
 }
 
 /**
@@ -118,7 +121,6 @@ async function testCleanTunnelConnection(): Promise<void> {
  */
 async function testPortConnection(host: string, port: number): Promise<boolean> {
   return new Promise((resolve) => {
-    const net = require('net');
     const socket = new net.Socket();
     const timeout = setTimeout(() => {
       socket.destroy();
@@ -144,7 +146,7 @@ async function testPortConnection(host: string, port: number): Promise<boolean> 
  * Test trace listener functionality separately
  */
 async function testTraceListener() {
-  console.log('🧪 === TESTING TRACE LISTENER SERVICE ===');
+  logger.info('🧪 === TESTING TRACE LISTENER SERVICE ===');
   
   const { TraceListenerService } = await import('../tunnel/TraceListenerService');
   
@@ -156,7 +158,7 @@ async function testTraceListener() {
   });
   
   // Simulate some trace messages
-  console.log('📝 Simulating trace messages...');
+  logger.info('📝 Simulating trace messages...');
   
   // Mock tunnel client for testing
   const mockClient = {
@@ -175,34 +177,34 @@ async function testTraceListener() {
   
   // Check results
   const stats = traceListener.getTraceStats();
-  console.log('📊 Trace statistics:', stats);
+  logger.info('📊 Trace statistics:', { stats });
   
   const portMappings = traceListener.extractPortMappingsFromTraces();
-  console.log('🔌 Extracted port mappings:', portMappings);
+  logger.info('🔌 Extracted port mappings:', { portMappings });
   
   traceListener.detachFromClient(mockClient as any);
-  console.log('✅ Trace listener test completed');
+  logger.info('✅ Trace listener test completed');
 }
 
 // Main test execution
 async function runAllTests() {
-  console.log('🧪 === RUNNING ALL CLEAN ARCHITECTURE TESTS ===');
-  console.log('');
+  logger.info('🧪 === RUNNING ALL CLEAN ARCHITECTURE TESTS ===');
+  logger.info('');
   
   // Test 1: Trace listener (safe to run without real connections)
   await testTraceListener();
-  console.log('');
+  logger.info('');
   
   // Test 2: Full tunnel connection (requires real tunnel properties)
   if (process.env.CONNECT_TOKEN) {
     await testCleanTunnelConnection();
   } else {
-    console.log('⏭️  Skipping full tunnel connection test (no CONNECT_TOKEN provided)');
-    console.log('   To run full test, set environment variables and run again');
+    logger.warn('⏭️  Skipping full tunnel connection test (no CONNECT_TOKEN provided)');
+    logger.warn('   To run full test, set environment variables and run again');
   }
   
-  console.log('');
-  console.log('🏁 All tests completed');
+  logger.info('');
+  logger.info('🏁 All tests completed');
 }
 
 // Export for use as module

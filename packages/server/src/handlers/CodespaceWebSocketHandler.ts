@@ -7,10 +7,10 @@ import WebSocket from 'ws';
 import { 
   MESSAGE_TYPES, 
   isWebSocketMessage,
+  PortConverter,
   type ServerMessage, 
   type WebSocketMessage,
-  type TcodeWebSocket,
-  type TunnelPort
+  type TcodeWebSocket
 } from 'tcode-shared';
 import { GitHubCodespaceConnector } from '../connectors/GitHubCodespaceConnector.js';
 import { logger } from '../utils/logger.js';
@@ -55,8 +55,8 @@ export class CodespaceWebSocketHandler {
       logger.info('Client disconnected');
       
       // Mark RPC connection as disconnected to start grace period
-      if (ws.rpcConnection && typeof ws.rpcConnection === 'object' && 'markAsDisconnected' in ws.rpcConnection) {
-        (ws.rpcConnection as any).markAsDisconnected();
+      if (ws.rpcConnection) {
+        ws.rpcConnection.markAsDisconnected();
       }
       
       await this.cleanup(ws);
@@ -164,9 +164,7 @@ export class CodespaceWebSocketHandler {
       
       if (ws.tunnelClient) {
         logger.info('Disposing of tunnel client on disconnect');
-        if (typeof ws.tunnelClient === 'object' && 'dispose' in ws.tunnelClient) {
-          await (ws.tunnelClient as any).dispose();
-        }
+        await ws.tunnelClient.dispose();
         ws.tunnelClient = undefined;
       }
       
@@ -197,32 +195,8 @@ export class CodespaceWebSocketHandler {
 
     const portInfo = await ws.connector.refreshPortInformation(ws);
     
-    // Convert PortInformation to WebSocketPortInformation
-    const webSocketPortInfo = {
-      userPorts: portInfo.userPorts.map((port: TunnelPort) => ({
-        portNumber: port.portNumber,
-        protocol: port.protocol,
-        urls: port.portForwardingUris || [],
-        accessControl: port.accessControl,
-        isUserPort: true
-      })),
-      managementPorts: portInfo.managementPorts.map((port: TunnelPort) => ({
-        portNumber: port.portNumber,
-        protocol: port.protocol,
-        urls: port.portForwardingUris || [],
-        accessControl: port.accessControl,
-        isUserPort: false
-      })),
-      allPorts: portInfo.allPorts.map((port: TunnelPort) => ({
-        portNumber: port.portNumber,
-        protocol: port.protocol,
-        urls: port.portForwardingUris || [],
-        accessControl: port.accessControl,
-        isUserPort: portInfo.userPorts.some((up: TunnelPort) => up.portNumber === port.portNumber)
-      })),
-      timestamp: portInfo.timestamp,
-      error: portInfo.error
-    };
+    // Use PortConverter to eliminate manual mapping and casting
+    const webSocketPortInfo = PortConverter.createWebSocketPortInfo(portInfo);
     
     this.sendMessage(ws, {
       type: MESSAGE_TYPES.PORT_INFO_RESPONSE,
@@ -260,9 +234,7 @@ export class CodespaceWebSocketHandler {
       if (ws.tunnelClient) {
         logger.info('Disposing of tunnel client on WebSocket close');
         try {
-          if (typeof ws.tunnelClient === 'object' && 'dispose' in ws.tunnelClient) {
-            await (ws.tunnelClient as any).dispose();
-          }
+          await ws.tunnelClient.dispose();
         } catch (error) {
           logger.error('Error disposing tunnel client', error as Error);
         }

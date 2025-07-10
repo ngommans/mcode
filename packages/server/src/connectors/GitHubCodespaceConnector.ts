@@ -6,6 +6,7 @@ import { request } from 'https';
 import WebSocket from 'ws';
 import { 
   GITHUB_API,
+  PortConverter,
   type Codespace, 
   type TunnelProperties, 
   type TerminalConnection,
@@ -181,12 +182,12 @@ export class GitHubCodespaceConnector implements CodespaceConnector {
         logger.info('Disposing of existing tunnel and RPC connections');
         try {
           // Close RPC connection first (stops heartbeat)
-          if (ws.rpcConnection && typeof (ws.rpcConnection as any).close === 'function') {
-            await (ws.rpcConnection as any).close();
+          if (ws.rpcConnection) {
+            await ws.rpcConnection.close();
           }
           // Then dispose tunnel client
-          if (ws.tunnelClient && typeof (ws.tunnelClient as any).dispose === 'function') {
-            await (ws.tunnelClient as any).dispose();
+          if (ws.tunnelClient) {
+            await ws.tunnelClient.dispose();
           }
         } catch (disposeError) {
           logger.error('Error disposing existing connections', disposeError as Error);
@@ -218,7 +219,7 @@ export class GitHubCodespaceConnector implements CodespaceConnector {
       this.sendCodespaceState(ws, codespaceName, 'Starting', `Establishing SSH connection via tunnel`);
 
       // Get private key from RPC connection
-      const privateKey = (result.rpcConnection as any)?.getCurrentPrivateKey();
+      const privateKey = result.rpcConnection?.getCurrentPrivateKey();
       if (!privateKey) {
         const errorMsg = 'No SSH private key available from RPC connection';
         logger.error(errorMsg);
@@ -272,25 +273,22 @@ export class GitHubCodespaceConnector implements CodespaceConnector {
 
   sendPortUpdate(_ws: TcodeWebSocket, portInfo: PortInformation): void {
     if (this.handler && this.ws && this.ws.readyState === WebSocket.OPEN) {
-      const userPortsWithUrls = portInfo.userPorts.map((port) => ({
-        portNumber: port.portNumber,
-        protocol: port.protocol,
-        urls: port.portForwardingUris || [],
-        accessControl: port.accessControl,
-        isUserPort: true
-      }));
+      // Use PortConverter to eliminate manual mapping
+      const userPortsForwarded = portInfo.userPorts.map(port => 
+        PortConverter.tunnelToForwarded(port, true)
+      );
 
       this.handler.sendMessage(this.ws, {
         type: 'port_update',
         portCount: portInfo.userPorts.length,
-        ports: userPortsWithUrls,
+        ports: userPortsForwarded,
         timestamp: portInfo.timestamp || new Date().toISOString()
       });
     }
   }
 
   async refreshPortInformation(ws: TcodeWebSocket): Promise<PortInformation> {
-    if (ws.tunnelManagementClient && ws.tunnelProperties && (ws.tunnelClient as any)?.connectedTunnel) {
+    if (ws.tunnelManagementClient && ws.tunnelProperties && ws.tunnelClient) {
       try {
         const updatedPortInfo = await getPortInformation(
           ws.tunnelManagementClient as any,
