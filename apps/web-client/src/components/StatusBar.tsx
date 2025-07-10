@@ -1,4 +1,4 @@
-import { h } from 'preact';
+
 
 type Status = 'connected' | 'disconnected' | 'connecting' | 'reconnecting' | 'error';
 
@@ -30,8 +30,6 @@ export function StatusBar({
   statusText, 
   portCount, 
   branchName = 'main',
-  repositoryName,
-  isConnectedToCodespace = false,
   gitStatus,
   onOpenConnectionModal,
   onDisconnect,
@@ -43,23 +41,18 @@ export function StatusBar({
   
 
   const handleStatusClick = () => {
-    console.log('StatusBar: handleStatusClick called, status:', status);
     if (status === 'disconnected' || status === 'error') {
-      console.log('StatusBar: Calling onOpenConnectionModal');
       onOpenConnectionModal();
     } else if (status === 'connected') {
-      console.log('StatusBar: Calling onDisconnect');
       onDisconnect();
     }
   };
 
   const handleBranchClick = () => {
-    console.log('Branch button clicked');
     onOpenBranchDialog();
   };
 
   const handleNetworkClick = () => {
-    console.log('Network button clicked');
     onOpenPortsDialog();
   };
 

@@ -1,4 +1,3 @@
-import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { getDefaultWebSocketUrl } from '../utils/websocket';
 
@@ -43,7 +42,6 @@ export function ConnectionModal({
   }, [serverUrl]);
 
   const handleConnect = () => {
-    console.log('Dispatching connect event with:', { serverUrl, githubToken });
     onConnect(serverUrl, githubToken);
     // Auto-authenticate if token is provided
     if (githubToken.trim()) {

@@ -7,7 +7,8 @@ import { CodespaceTerminalServer } from './server/CodespaceTerminalServer.js';
 import { logger } from './utils/logger.js';
 
 // Export for use by other packages (like npx-server)
-export { CodespaceWebSocketHandler, type ServerOptions, type ExtendedWebSocket } from './handlers/CodespaceWebSocketHandler.js';
+export { CodespaceWebSocketHandler, type ServerOptions } from './handlers/CodespaceWebSocketHandler.js';
+export type { TcodeWebSocket } from 'tcode-shared';
 export { CodespaceTerminalServer } from './server/CodespaceTerminalServer.js';
 
 // Export main function for programmatic use

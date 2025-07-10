@@ -4,26 +4,18 @@
  */
 
 import WebSocket from 'ws';
-import type { 
-  ServerMessage, 
-  WebSocketMessage,
-  TerminalConnection
+import { 
+  MESSAGE_TYPES, 
+  isWebSocketMessage,
+  type ServerMessage, 
+  type WebSocketMessage,
+  type TcodeWebSocket,
+  type TunnelPort
 } from 'tcode-shared';
-import { MESSAGE_TYPES, isWebSocketMessage } from 'tcode-shared';
 import { GitHubCodespaceConnector } from '../connectors/GitHubCodespaceConnector.js';
 import { logger } from '../utils/logger.js';
 
-export interface ExtendedWebSocket extends WebSocket {
-  connector?: GitHubCodespaceConnector;
-  terminalConnection?: TerminalConnection;
-  codespaceName?: string;
-  tunnelClient?: any;
-  portInfo?: any;
-  endpointInfo?: any;
-  tunnelManagementClient?: any;
-  tunnelProperties?: any;
-  rpcConnection?: any; // CodespaceRPCInvoker
-}
+// All WebSocket properties are now consolidated in TcodeWebSocket from tcode-shared
 
 export interface ServerOptions {
   debugMode?: boolean;
@@ -40,7 +32,7 @@ export class CodespaceWebSocketHandler {
    * Handle new WebSocket connection
    * This method is designed to be used as a callback for WebSocket server
    */
-  handleConnection = (ws: ExtendedWebSocket): void => {
+  handleConnection = (ws: TcodeWebSocket): void => {
     logger.info('New client connected');
     
     // Initialize connection state
@@ -63,20 +55,20 @@ export class CodespaceWebSocketHandler {
       logger.info('Client disconnected');
       
       // Mark RPC connection as disconnected to start grace period
-      if (ws.rpcConnection) {
-        ws.rpcConnection.markAsDisconnected();
+      if (ws.rpcConnection && typeof ws.rpcConnection === 'object' && 'markAsDisconnected' in ws.rpcConnection) {
+        (ws.rpcConnection as any).markAsDisconnected();
       }
       
       await this.cleanup(ws);
     });
 
-    ws.on('error', async (error) => {
+    ws.on('error', async (error: Error) => {
       logger.error('WebSocket connection error', error);
       await this.cleanup(ws);
     });
   };
 
-  private async handleMessage(ws: ExtendedWebSocket, message: WebSocketMessage): Promise<void> {
+  private async handleMessage(ws: TcodeWebSocket, message: WebSocketMessage): Promise<void> {
     if (!isWebSocketMessage(message)) {
       throw new Error('Invalid message format');
     }
@@ -121,7 +113,7 @@ export class CodespaceWebSocketHandler {
     }
   }
 
-  private async handleAuthenticate(ws: ExtendedWebSocket, message: { token: string }): Promise<void> {
+  private async handleAuthenticate(ws: TcodeWebSocket, message: { token: string }): Promise<void> {
     ws.connector = new GitHubCodespaceConnector(message.token, ws, this, { debugMode: this.options.debugMode });
     this.sendMessage(ws, {
       type: MESSAGE_TYPES.AUTHENTICATED,
@@ -129,7 +121,7 @@ export class CodespaceWebSocketHandler {
     });
   }
 
-  private async handleListCodespaces(ws: ExtendedWebSocket): Promise<void> {
+  private async handleListCodespaces(ws: TcodeWebSocket): Promise<void> {
     if (!ws.connector) {
       throw new Error('Not authenticated. Please send an authenticate message first.');
     }
@@ -141,7 +133,7 @@ export class CodespaceWebSocketHandler {
     });
   }
 
-  private async handleConnectCodespace(ws: ExtendedWebSocket, message: { codespace_name: string }): Promise<void> {
+  private async handleConnectCodespace(ws: TcodeWebSocket, message: { codespace_name: string }): Promise<void> {
     if (!ws.connector) {
       throw new Error('Not authenticated. Please send an authenticate message first.');
     }
@@ -153,7 +145,7 @@ export class CodespaceWebSocketHandler {
 
     ws.terminalConnection = await ws.connector.connectToCodespace(
       message.codespace_name,
-      (data) => {
+      (data: string) => {
         this.sendMessage(ws, {
           type: MESSAGE_TYPES.OUTPUT,
           data: data
@@ -165,14 +157,16 @@ export class CodespaceWebSocketHandler {
     ws.codespaceName = message.codespace_name;
   }
 
-  private async handleDisconnectCodespace(ws: ExtendedWebSocket): Promise<void> {
+  private async handleDisconnectCodespace(ws: TcodeWebSocket): Promise<void> {
     if (ws.terminalConnection) {
       ws.terminalConnection.close();
       ws.terminalConnection = undefined;
       
       if (ws.tunnelClient) {
         logger.info('Disposing of tunnel client on disconnect');
-        ws.tunnelClient.dispose();
+        if (typeof ws.tunnelClient === 'object' && 'dispose' in ws.tunnelClient) {
+          await (ws.tunnelClient as any).dispose();
+        }
         ws.tunnelClient = undefined;
       }
       
@@ -184,31 +178,59 @@ export class CodespaceWebSocketHandler {
     }
   }
 
-  private async handleInput(ws: ExtendedWebSocket, message: { data: string }): Promise<void> {
+  private async handleInput(ws: TcodeWebSocket, message: { data: string }): Promise<void> {
     if (ws.terminalConnection) {
       ws.terminalConnection.write(message.data);
     }
   }
 
-  private async handleResize(ws: ExtendedWebSocket, message: { cols: number; rows: number }): Promise<void> {
+  private async handleResize(ws: TcodeWebSocket, message: { cols: number; rows: number }): Promise<void> {
     if (ws.terminalConnection) {
       ws.terminalConnection.resize(message.cols, message.rows);
     }
   }
 
-  private async handleGetPortInfo(ws: ExtendedWebSocket): Promise<void> {
+  private async handleGetPortInfo(ws: TcodeWebSocket): Promise<void> {
     if (!ws.connector) {
       throw new Error('Not authenticated.');
     }
 
     const portInfo = await ws.connector.refreshPortInformation(ws);
+    
+    // Convert PortInformation to WebSocketPortInformation
+    const webSocketPortInfo = {
+      userPorts: portInfo.userPorts.map((port: TunnelPort) => ({
+        portNumber: port.portNumber,
+        protocol: port.protocol,
+        urls: port.portForwardingUris || [],
+        accessControl: port.accessControl,
+        isUserPort: true
+      })),
+      managementPorts: portInfo.managementPorts.map((port: TunnelPort) => ({
+        portNumber: port.portNumber,
+        protocol: port.protocol,
+        urls: port.portForwardingUris || [],
+        accessControl: port.accessControl,
+        isUserPort: false
+      })),
+      allPorts: portInfo.allPorts.map((port: TunnelPort) => ({
+        portNumber: port.portNumber,
+        protocol: port.protocol,
+        urls: port.portForwardingUris || [],
+        accessControl: port.accessControl,
+        isUserPort: portInfo.userPorts.some((up: TunnelPort) => up.portNumber === port.portNumber)
+      })),
+      timestamp: portInfo.timestamp,
+      error: portInfo.error
+    };
+    
     this.sendMessage(ws, {
       type: MESSAGE_TYPES.PORT_INFO_RESPONSE,
-      portInfo: portInfo
+      portInfo: webSocketPortInfo
     });
   }
 
-  private async handleRefreshPorts(ws: ExtendedWebSocket): Promise<void> {
+  private async handleRefreshPorts(ws: TcodeWebSocket): Promise<void> {
     if (!ws.connector) {
       throw new Error('Not authenticated.');
     }
@@ -216,7 +238,7 @@ export class CodespaceWebSocketHandler {
     await ws.connector.refreshPortInformation(ws);
   }
 
-  private async cleanup(ws: ExtendedWebSocket): Promise<void> {
+  private async cleanup(ws: TcodeWebSocket): Promise<void> {
     try {
       // Close terminal connection first
       if (ws.terminalConnection) {
@@ -238,7 +260,9 @@ export class CodespaceWebSocketHandler {
       if (ws.tunnelClient) {
         logger.info('Disposing of tunnel client on WebSocket close');
         try {
-          await ws.tunnelClient.dispose();
+          if (typeof ws.tunnelClient === 'object' && 'dispose' in ws.tunnelClient) {
+            await (ws.tunnelClient as any).dispose();
+          }
         } catch (error) {
           logger.error('Error disposing tunnel client', error as Error);
         }

@@ -1,4 +1,3 @@
-import { h } from 'preact';
 import { filterAccessiblePorts, getAccessibleUrls, type Port } from '../utils/portUtils';
 
 interface PortInfo {
@@ -14,8 +13,6 @@ interface PortsDialogProps {
 }
 
 export function PortsDialog({ isOpen, portInfo, onClose, onRefresh }: PortsDialogProps) {
-  console.log('PortsDialog render:', { isOpen, portCount: portInfo.portCount, ports: portInfo.ports });
-  
   const handlePortClick = (url: string) => {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
@@ -97,9 +94,7 @@ export function PortsDialog({ isOpen, portInfo, onClose, onRefresh }: PortsDialo
             </div>
           ) : (
             <div className="space-y-2">
-              {filteredPorts.map((port) => {
-                console.log('PortsDialog: Rendering port:', port);
-                return (
+              {filteredPorts.map((port) => (
                 <div 
                   key={port.portNumber} 
                   className="border border-[#444] rounded-lg p-4 bg-[#2d2d2d] hover:bg-[#333] transition-colors"
@@ -144,8 +139,7 @@ export function PortsDialog({ isOpen, portInfo, onClose, onRefresh }: PortsDialo
                     </div>
                   </div>
                 </div>
-                );
-              })}
+              ))}
             </div>
           )}
         </div>

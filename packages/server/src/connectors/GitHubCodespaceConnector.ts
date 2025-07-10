@@ -4,15 +4,17 @@
 
 import { request } from 'https';
 import WebSocket from 'ws';
-import type { 
-  Codespace, 
-  TunnelProperties, 
-  TerminalConnection,
-  PortInformation,
-  TunnelConnectionResult,
-  CodespaceState
+import { 
+  GITHUB_API,
+  type Codespace, 
+  type TunnelProperties, 
+  type TerminalConnection,
+  type PortInformation,
+  type TunnelConnectionResult,
+  type CodespaceState,
+  type TcodeWebSocket,
+  type CodespaceConnector
 } from 'tcode-shared';
-import { GITHUB_API } from 'tcode-shared';
 import { forwardSshPortOverTunnel, getPortInformation } from '../tunnel/TunnelModule.js';
 import { Ssh2Connector } from './Ssh2Connector.js';
 import { logger } from '../utils/logger.js';
@@ -22,7 +24,12 @@ interface ConnectorOptions {
   debugMode?: boolean;
 }
 
-export class GitHubCodespaceConnector {
+interface RetryableError extends Error {
+  retryable?: boolean;
+  codespaceState?: string;
+}
+
+export class GitHubCodespaceConnector implements CodespaceConnector {
   private accessToken: string;
   private ws: WebSocket;
   private handler: CodespaceWebSocketHandler;
@@ -129,8 +136,8 @@ export class GitHubCodespaceConnector {
               // Handle specific states that might become available
               if (response.state === 'Starting' || response.state === 'Provisioning') {
                 const retryableError = new Error(`Codespace is ${response.state}. This is normal during initialization - please retry in 30-60 seconds.`);
-                (retryableError as any).retryable = true;
-                (retryableError as any).codespaceState = response.state;
+                (retryableError as RetryableError).retryable = true;
+                (retryableError as RetryableError).codespaceState = response.state;
                 this.sendCodespaceState(this.ws, codespaceName, response.state);
                 return reject(retryableError);
               } else {
@@ -164,32 +171,32 @@ export class GitHubCodespaceConnector {
   async connectToCodespace(
     codespaceName: string,
     onTerminalData: (data: string) => void,
-    ws: WebSocket
+    ws: TcodeWebSocket
   ): Promise<TerminalConnection> {
     try {
       logger.info('Intercepting connection request for codespace', { codespaceName });
 
       // If there's an existing tunnel client, dispose of it properly
-      if ((ws as any).tunnelClient || (ws as any).rpcConnection) {
+      if (ws.tunnelClient || ws.rpcConnection) {
         logger.info('Disposing of existing tunnel and RPC connections');
         try {
           // Close RPC connection first (stops heartbeat)
-          if ((ws as any).rpcConnection) {
-            await (ws as any).rpcConnection.close();
+          if (ws.rpcConnection && typeof (ws.rpcConnection as any).close === 'function') {
+            await (ws.rpcConnection as any).close();
           }
           // Then dispose tunnel client
-          if ((ws as any).tunnelClient) {
-            await (ws as any).tunnelClient.dispose();
+          if (ws.tunnelClient && typeof (ws.tunnelClient as any).dispose === 'function') {
+            await (ws.tunnelClient as any).dispose();
           }
         } catch (disposeError) {
           logger.error('Error disposing existing connections', disposeError as Error);
         }
-        (ws as any).tunnelClient = null;
-        (ws as any).rpcConnection = null;
-        (ws as any).portInfo = null;
-        (ws as any).endpointInfo = null;
-        (ws as any).tunnelManagementClient = null;
-        (ws as any).tunnelProperties = null;
+        ws.tunnelClient = undefined;
+        ws.rpcConnection = undefined;
+        ws.portInfo = undefined;
+        ws.endpointInfo = undefined;
+        ws.tunnelManagementClient = undefined;
+        ws.tunnelProperties = undefined;
       }
 
       const tunnelProperties = await this.getTunnelProperties(codespaceName);
@@ -198,12 +205,12 @@ export class GitHubCodespaceConnector {
       });
       
       // Store tunnel information on the WebSocket session
-      (ws as any).tunnelClient = result.tunnelClient;
-      (ws as any).portInfo = result.portInfo;
-      (ws as any).endpointInfo = result.endpointInfo;
-      (ws as any).tunnelManagementClient = result.tunnelManagementClient;
-      (ws as any).tunnelProperties = tunnelProperties;
-      (ws as any).rpcConnection = result.rpcConnection; // Store RPC connection for cleanup
+      ws.tunnelClient = result.tunnelClient;
+      ws.portInfo = result.portInfo;
+      ws.endpointInfo = result.endpointInfo;
+      ws.tunnelManagementClient = result.tunnelManagementClient;
+      ws.tunnelProperties = tunnelProperties;
+      ws.rpcConnection = result.rpcConnection; // Store RPC connection for cleanup
 
       logger.info('Connecting to local port', { localPort: result.localPort });
 
@@ -211,7 +218,7 @@ export class GitHubCodespaceConnector {
       this.sendCodespaceState(ws, codespaceName, 'Starting', `Establishing SSH connection via tunnel`);
 
       // Get private key from RPC connection
-      const privateKey = result.rpcConnection?.getCurrentPrivateKey();
+      const privateKey = (result.rpcConnection as any)?.getCurrentPrivateKey();
       if (!privateKey) {
         const errorMsg = 'No SSH private key available from RPC connection';
         logger.error(errorMsg);
@@ -248,7 +255,7 @@ export class GitHubCodespaceConnector {
   }
 
   sendCodespaceState(
-    _ws: WebSocket,
+    _ws: TcodeWebSocket,
     codespaceName: string,
     state: CodespaceState,
     repositoryFullName?: string
@@ -263,9 +270,9 @@ export class GitHubCodespaceConnector {
     }
   }
 
-  sendPortUpdate(_ws: WebSocket, portInfo: any): void {
+  sendPortUpdate(_ws: TcodeWebSocket, portInfo: PortInformation): void {
     if (this.handler && this.ws && this.ws.readyState === WebSocket.OPEN) {
-      const userPortsWithUrls = portInfo.userPorts.map((port: any) => ({
+      const userPortsWithUrls = portInfo.userPorts.map((port) => ({
         portNumber: port.portNumber,
         protocol: port.protocol,
         urls: port.portForwardingUris || [],
@@ -282,21 +289,20 @@ export class GitHubCodespaceConnector {
     }
   }
 
-  async refreshPortInformation(ws: WebSocket): Promise<PortInformation> {
-    const wsAny = ws as any;
-    if (wsAny.tunnelManagementClient && wsAny.tunnelProperties && wsAny.tunnelClient?.connectedTunnel) {
+  async refreshPortInformation(ws: TcodeWebSocket): Promise<PortInformation> {
+    if (ws.tunnelManagementClient && ws.tunnelProperties && (ws.tunnelClient as any)?.connectedTunnel) {
       try {
         const updatedPortInfo = await getPortInformation(
-          wsAny.tunnelManagementClient,
-          wsAny.tunnelClient.connectedTunnel,
-          wsAny.tunnelProperties
+          ws.tunnelManagementClient as any,
+          (ws.tunnelClient as any).connectedTunnel,
+          ws.tunnelProperties
         );
-        wsAny.portInfo = updatedPortInfo;
+        ws.portInfo = updatedPortInfo;
         this.sendPortUpdate(ws, updatedPortInfo);
         return updatedPortInfo;
       } catch (error) {
         logger.error('Failed to refresh port information', error as Error);
-        return wsAny.portInfo || { userPorts: [], managementPorts: [], allPorts: [] };
+        return (ws.portInfo as PortInformation) || { userPorts: [], managementPorts: [], allPorts: [] };
       }
     }
     return { userPorts: [], managementPorts: [], allPorts: [] };

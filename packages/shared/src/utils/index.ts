@@ -2,8 +2,11 @@
  * Shared utility functions
  */
 
-export function isWebSocketMessage(data: any): data is import('../types/websocket.js').WebSocketMessage {
-  return typeof data === 'object' && data !== null && typeof data.type === 'string';
+export function isWebSocketMessage(data: unknown): data is import('../types/websocket.js').WebSocketMessage {
+  if( typeof data === 'object' && data !== null && 'type' in data) {
+    return typeof (data as {type: unknown}).type === 'string';
+  }
+  return false;
 }
 
 export function createMessage<T extends import('../types/websocket.js').WebSocketMessage>(message: T): T {

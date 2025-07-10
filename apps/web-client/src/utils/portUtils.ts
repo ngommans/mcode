@@ -5,7 +5,7 @@ export interface Port {
   protocol: string;
   urls?: string[];
   labels?: string[];
-  accessControl?: any;
+  accessControl?: Record<string, unknown>;
 }
 
 /**

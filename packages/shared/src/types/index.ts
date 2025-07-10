@@ -11,8 +11,11 @@ export * from './tunnel.js';
 // Configuration types
 export * from './config.js';
 
+// Server-side types
+export * from './server.js';
+
 // Common utility types
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -34,13 +37,13 @@ export interface LogEntry {
   timestamp: string;
   level: LogLevel;
   message: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   error?: Error;
 }
 
 export type Status = 'idle' | 'loading' | 'success' | 'error';
 
-export interface AsyncState<T = any> {
+export interface AsyncState<T = unknown> {
   status: Status;
   data?: T;
   error?: string;

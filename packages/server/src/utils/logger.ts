@@ -21,7 +21,7 @@ class Logger {
     return levels[level] <= levels[this.logLevel];
   }
 
-  private log(level: LogLevel, message: string, context?: Record<string, any>, error?: Error): void {
+  private log(level: LogLevel, message: string, context?: Record<string, unknown>, error?: Error): void {
     if (!this.shouldLog(level)) return;
 
     const entry: LogEntry = {
@@ -45,7 +45,7 @@ class Logger {
     }
   }
 
-  error(message: string, error?: Error | Record<string, any>): void {
+  error(message: string, error?: Error | Record<string, unknown>): void {
     if (error instanceof Error) {
       this.log('error', message, undefined, error);
     } else {
@@ -53,15 +53,15 @@ class Logger {
     }
   }
 
-  warn(message: string, context?: Record<string, any>): void {
+  warn(message: string, context?: Record<string, unknown>): void {
     this.log('warn', message, context);
   }
 
-  info(message: string, context?: Record<string, any>): void {
+  info(message: string, context?: Record<string, unknown>): void {
     this.log('info', message, context);
   }
 
-  debug(message: string, context?: Record<string, any>): void {
+  debug(message: string, context?: Record<string, unknown>): void {
     this.log('debug', message, context);
   }
 

@@ -1,4 +1,4 @@
-import { h } from 'preact';
+
 
 interface BranchInfo {
   repository?: {
@@ -30,17 +30,7 @@ interface BranchDialogProps {
 }
 
 export function BranchDialog({ isOpen, branchInfo, onClose }: BranchDialogProps) {
-  console.log('BranchDialog render:', { isOpen, branchInfo: !!branchInfo });
-  if (branchInfo) {
-    console.log('BranchDialog: Received branch info:', branchInfo);
-  }
-  
-  if (!isOpen) {
-    return null;
-  }
-  
-  if (!branchInfo) {
-    console.log('BranchDialog: No branch info, not showing dialog');
+  if (!isOpen || !branchInfo) {
     return null;
   }
 

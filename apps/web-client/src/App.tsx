@@ -298,7 +298,7 @@ export function App() {
       console.log('Terminal initialized:', terminalInstance.current);
 
       const resizeObserver = new ResizeObserver(entries => {
-        for (let entry of entries) {
+        for (const entry of entries) {
           if (entry.target === terminalRef.current && fitAddonInstance.current) {
             fitAddonInstance.current.fit();
             if (socket.current?.readyState === WebSocket.OPEN && terminalInstance.current) {

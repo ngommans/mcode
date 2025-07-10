@@ -5,7 +5,7 @@
 
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import type { WebSocketMessage, ServerMessage } from 'tcode-shared';
+import type { ServerMessage, AuthenticatedMessage, CodespacesListMessage, CodespaceStateMessage, PortUpdateMessage } from 'tcode-shared';
 import { getDefaultWebSocketUrl } from '../utils/websocket';
 
 interface PortInfo {
@@ -232,9 +232,7 @@ export class MinimalTerminalClient {
     
     setTimeout(() => {
       if (this.fitAddon) {
-        console.log(`[DEBUG] Before fit: terminalContainer.offsetHeight=${terminalContainer.offsetHeight}, terminalContainer.offsetWidth=${terminalContainer.offsetWidth}`);
         this.fitAddon.fit();
-        console.log(`[DEBUG] After fit: cols=${this.terminal?.cols}, rows=${this.terminal?.rows}`);
       }
     }, 100);
     
@@ -252,10 +250,9 @@ export class MinimalTerminalClient {
 
   private setupResizeHandling(terminalContainer: HTMLElement): void {
     const resizeObserver = new ResizeObserver(entries => {
-      for (let entry of entries) {
+      for (const entry of entries) {
         if (entry.target === terminalContainer && this.fitAddon) {
           this.fitAddon.fit();
-          console.log(`[DEBUG] Terminal resized by ResizeObserver: cols=${this.terminal?.cols}, rows=${this.terminal?.rows}`);
           
           if (this.socket && this.socket.readyState === WebSocket.OPEN && this.terminal) {
             this.socket.send(JSON.stringify({
@@ -272,7 +269,6 @@ export class MinimalTerminalClient {
     window.addEventListener('resize', () => {
       if (this.fitAddon) {
         this.fitAddon.fit();
-        console.log(`[DEBUG] Terminal resized by window resize: cols=${this.terminal?.cols}, rows=${this.terminal?.rows}`);
         
         if (this.socket && this.socket.readyState === WebSocket.OPEN && this.terminal) {
           this.socket.send(JSON.stringify({
@@ -563,6 +559,7 @@ export class MinimalTerminalClient {
       };
       
       this.socket.onerror = (error) => {
+        console.error('WebSocket error:', error);
         this.updateStatus('Connection Error', false);
         this.updateInfoBox('Connection error. Please check the server URL and try again.', true);
         
@@ -673,8 +670,6 @@ export class MinimalTerminalClient {
   }
 
   private handleMessage(message: ServerMessage): void {
-    console.log('Received message:', message);
-    
     switch (message.type) {
       case 'authenticated':
         this.handleAuthenticated(message);
@@ -698,7 +693,7 @@ export class MinimalTerminalClient {
         this.handlePortUpdate(message);
         break;
         
-      case 'error':
+      case 'error': {
         this.updateInfoBox(message.message || 'An error occurred', true);
         if (this.terminal) {
           this.terminal.writeln(`\r\n\x1b[31mError: ${message.message}\x1b[0m\r\n`);
@@ -708,13 +703,13 @@ export class MinimalTerminalClient {
         const connectCodespaceButton = this._getDomElement<HTMLButtonElement>('connectCodespaceButton');
         connectCodespaceButton.classList.add('error');
         break;
-        
+      }
       default:
-        console.warn('Unknown message type:', message.type);
+        break;
     }
   }
 
-  private handleAuthenticated(message: any): void {
+  private handleAuthenticated(message: AuthenticatedMessage): void {
     const authenticateButton = this._getDomElement<HTMLButtonElement>('authenticateButton');
     if (message.success) {
       this.updateInfoBox('Successfully authenticated. Loading codespaces...');

@@ -205,7 +205,7 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
   };
 
   let client: TunnelRelayTunnelClient | null = null;
-  let portInfo: PortInformation = { userPorts: [], managementPorts: [], allPorts: [] };
+  const portInfo: PortInformation = { userPorts: [], managementPorts: [], allPorts: [] };
 
   try {
     console.log('Fetching full tunnel object for port forwarding...');

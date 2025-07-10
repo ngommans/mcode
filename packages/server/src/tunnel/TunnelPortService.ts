@@ -8,6 +8,7 @@ import { TunnelManagementHttpClient } from '@microsoft/dev-tunnels-management';
 import type { TunnelProperties } from 'tcode-shared';
 import PortForwardingManager, { PortMapping, PortForwardingState } from './PortForwardingManager.js';
 import TraceListenerService from './TraceListenerService.js';
+import net from 'net';
 
 export interface PortDetectionResult {
   success: boolean;
@@ -63,9 +64,10 @@ export class TunnelPortService {
       
       this.isInitialized = true;
       console.log('✅ TunnelPortService initialized successfully');
-    } catch (error: any) {
-      console.error('❌ Failed to initialize TunnelPortService:', error.message);
-      throw new Error(`TunnelPortService initialization failed: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('❌ Failed to initialize TunnelPortService:', errorMessage);
+      throw new Error(`TunnelPortService initialization failed: ${errorMessage}`);
     }
   }
 
@@ -147,11 +149,12 @@ export class TunnelPortService {
         source: 'none'
       };
 
-    } catch (error: any) {
-      console.error('❌ RPC port detection failed:', error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('❌ RPC port detection failed:', errorMessage);
       return {
         success: false,
-        error: error.message,
+        error: errorMessage,
         source: 'none'
       };
     }
@@ -239,11 +242,12 @@ export class TunnelPortService {
         source: 'none'
       };
 
-    } catch (error: any) {
-      console.error('❌ SSH port detection failed:', error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('❌ SSH port detection failed:', errorMessage);
       return {
         success: false,
-        error: error.message,
+        error: errorMessage,
         source: 'none'
       };
     }
@@ -297,10 +301,11 @@ export class TunnelPortService {
         source: 'none'
       };
       
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return {
         success: false,
-        error: error.message,
+        error: errorMessage,
         source: 'none'
       };
     }
@@ -311,7 +316,6 @@ export class TunnelPortService {
    */
   private async testPortConnection(host: string, port: number): Promise<boolean> {
     return new Promise((resolve) => {
-      const net = require('net');
       const socket = new net.Socket();
       const timeout = setTimeout(() => {
         socket.destroy();

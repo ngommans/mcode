@@ -65,7 +65,7 @@ export async function connectToTunnel(
 
   let client: TunnelRelayTunnelClient | null = null;
   let portService: TunnelPortService | null = null;
-  let portInfo: PortInformation = { userPorts: [], managementPorts: [], allPorts: [] };
+  const portInfo: PortInformation = { userPorts: [], managementPorts: [], allPorts: [] };
 
   try {
     console.log('📡 Fetching tunnel object for connection...');

@@ -49,15 +49,15 @@ export interface TunnelPort {
   options?: {
     isGloballyAvailable: boolean;
   };
-  status?: Record<string, any>;
+  status?: Record<string, unknown>;
   portForwardingUris?: string[];
   inspectionUri?: string;
 }
 
 export interface PortInfo {
-  userPorts: any[]; // Allow flexible port types
-  managementPorts: any[];
-  allPorts: any[];
+  userPorts: TunnelPort[]; // User-created forwarded ports
+  managementPorts: TunnelPort[]; // System management ports
+  allPorts: TunnelPort[]; // All ports combined
   timestamp?: string;
   error?: string; // Add error field for compatibility
 }
@@ -69,12 +69,12 @@ export interface TunnelConnectionResult {
   success: boolean;
   localPort?: number;
   sshPort?: number;
-  client?: any; // TunnelRelayTunnelClient - avoid importing external types
-  tunnelClient?: any; // Backwards compatibility
+  client?: unknown; // TunnelRelayTunnelClient - avoid importing external types
+  tunnelClient?: unknown; // Backwards compatibility
   portInfo: PortInfo;
   endpointInfo?: EndpointInfo | null;
-  tunnelManagementClient?: any; // TunnelManagementHttpClient
-  rpcConnection?: any; // CodespaceRPCInvoker
+  tunnelManagementClient?: unknown; // TunnelManagementHttpClient
+  rpcConnection?: unknown; // CodespaceRPCInvoker
   error?: string;
   cleanup: () => void;
 }

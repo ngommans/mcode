@@ -3,8 +3,7 @@
  */
 
 import { Client, type ConnectConfig } from 'ssh2';
-import type { TerminalConnection } from 'tcode-shared';
-import { TERMINAL_DEFAULTS } from 'tcode-shared';
+import { TERMINAL_DEFAULTS, type TerminalConnection } from 'tcode-shared';
 import { logger } from '../utils/logger.js';
 
 export class Ssh2Connector {

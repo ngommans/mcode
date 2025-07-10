@@ -330,7 +330,16 @@ export interface ForwardedPort {
   portNumber: number;
   protocol: string;
   urls: string[];
-  accessControl?: any;
+  accessControl?: {
+    entries: Array<{
+      type: string;
+      provider: string;
+      isInherited: boolean;
+      isDeny: boolean;
+      subjects: string[];
+      scopes: string[];
+    }>;
+  };
   isUserPort: boolean;
 }
 
@@ -338,9 +347,9 @@ export interface ForwardedPort {
 * A container for all port information, categorized for easy consumption by the client.
 */
 export interface WebSocketPortInformation {
-  userPorts: any[];
-  managementPorts: any[];
-  allPorts: any[];
+  userPorts: ForwardedPort[];
+  managementPorts: ForwardedPort[];
+  allPorts: ForwardedPort[];
   timestamp?: string;
   error?: string;
 }

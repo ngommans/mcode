@@ -72,7 +72,7 @@ async function testCleanTunnelConnection(): Promise<void> {
         console.log('🧪 Testing RPC connection...');
         try {
           // Test keep-alive
-          result.rpcConnection.keepAlive();
+          (result.rpcConnection as any).keepAlive();
           console.log('✅ RPC keep-alive test successful');
         } catch (rpcError: any) {
           console.warn(`⚠️  RPC test failed: ${rpcError.message}`);
