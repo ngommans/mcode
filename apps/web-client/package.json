@@ -4,7 +4,7 @@
   "description": "Progressive Web App client for Terminal Code (tcode)",
   "type": "module",
   "scripts": {
-    "copy:icons": "cp ../../docs/tcode-192x192.png ../../docs/tcode-512x512.png ../../docs/favicon.ico ./public/",
+    "copy:icons": "mkdir -p ./public && cp ../../docs/tcode-192x192.png ../../docs/tcode-512x512.png ../../docs/favicon.ico ./public/",
     "prebuild": "npm run copy:icons",
     "build": "vite build",
     "build:prod": "vite build --mode production",
