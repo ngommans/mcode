@@ -323,36 +323,10 @@ export interface Codespace {
   idle_timeout_minutes: number;
 }
 
-/**
-* Represents a port that has been forwarded from the remote codespace.
-*/
-export interface ForwardedPort {
-  portNumber: number;
-  protocol: string;
-  urls: string[];
-  accessControl?: {
-    entries: Array<{
-      type: string;
-      provider: string;
-      isInherited: boolean;
-      isDeny: boolean;
-      subjects: string[];
-      scopes: string[];
-    }>;
-  };
-  isUserPort: boolean;
-}
-
-/**
-* A container for all port information, categorized for easy consumption by the client.
-*/
-export interface WebSocketPortInformation {
-  userPorts: ForwardedPort[];
-  managementPorts: ForwardedPort[];
-  allPorts: ForwardedPort[];
-  timestamp?: string;
-  error?: string;
-}
+// Port types moved to ./port.ts for unified hierarchy
+// Re-export for backwards compatibility
+export type { ForwardedPort, WebSocketPortInformation } from './port.js';
+import type { ForwardedPort, WebSocketPortInformation } from './port.js';
 
 // =================================================================
 // #endregion

@@ -1,4 +1,3 @@
-import { h } from 'preact';
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import type { ServerMessage } from 'tcode-shared';
 import { Terminal } from '@xterm/xterm';
@@ -7,7 +6,7 @@ import '@xterm/xterm/css/xterm.css';
 import { StatusBar } from './components/StatusBar';
 import { ConnectionModal } from './components/ConnectionModal';
 import { PortsDialog } from './components/PortsDialog';
-import { BranchDialog } from './components/BranchDialog';
+import { BranchDialog, type BranchInfo } from './components/BranchDialog';
 import { getAccessiblePortCount } from './utils/portUtils';
 import { getDefaultWebSocketUrl } from './utils/websocket';
 
@@ -21,12 +20,10 @@ export function App() {
   const [isBranchDialogOpen, setIsBranchDialogOpen] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<string>('disconnected');
   const [authenticationStatus, setAuthenticationStatus] = useState<string>('unauthenticated');
-  const [currentCodespace, setCurrentCodespace] = useState<any>(null);
+  const [currentCodespace, setCurrentCodespace] = useState<BranchInfo | null>(null);
   const [serverUrl, setServerUrl] = useState(getDefaultWebSocketUrl());
-  const [githubToken, setGithubToken] = useState('');
   const [codespaces, setCodespaces] = useState([]);
   const [portInfo, setPortInfo] = useState({ ports: [], portCount: 0 });
-  const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const terminalRef = useRef<HTMLDivElement>(null);
   const terminalInstance = useRef<Terminal | null>(null);
   const fitAddonInstance = useRef<FitAddon | null>(null);
@@ -43,7 +40,6 @@ export function App() {
   }, []);
 
   const handleMessage = useCallback((message: ServerMessage) => {
-    console.log('Received message:', message);
     switch (message.type) {
       case 'authenticated':
         if (message.success) {
@@ -60,19 +56,17 @@ export function App() {
           setAuthenticationStatus('failed');
         }
         break;
-      case 'codespaces_list':
-        console.log('App.tsx: Received codespaces_list', message.data);
+      case 'codespaces_list': {
         // Log the first codespace to see available properties
         if (message.data && message.data.length > 0) {
-          console.log('First codespace structure:', message.data[0]);
           // Set the first codespace as current for branch dialog data
-          console.log('App: Setting currentCodespace to:', message.data[0]);
           setCurrentCodespace(message.data[0]);
         }
         setCodespaces(message.data || []);
         const count = message.data?.length || 0;
         setStatusText(`Codespaces found: ${count} - Open a codespace`);
         break;
+      }
       case 'output':
         if (terminalInstance.current && message.data) {
           terminalInstance.current.write(message.data);
@@ -82,8 +76,7 @@ export function App() {
         setStatus('error');
         setStatusText(message.message || 'An error occurred');
         break;
-      case 'codespace_state':
-        console.log('App.tsx: Received codespace_state', message);
+      case 'codespace_state': {
         const displayName = message.codespace_data?.display_name || 
                            message.codespace_data?.repository?.full_name || 
                            message.codespace_name?.replace(/-/g, ' ');
@@ -115,19 +108,17 @@ export function App() {
           setStatus('connecting');
         }
         break;
+      }
       case 'port_update':
-        console.log('App.tsx: Received port_update', message);
-        console.log('App.tsx: Port data structure:', message.ports);
-        
         setPortInfo({
           ports: message.ports || [],
           portCount: getAccessiblePortCount(message.ports || []),
         });
         break;
       default:
-        console.warn('Unknown message type:', message.type);
+        break;
     }
-  }, [requestCodespaces, setIsModalOpen, setPortInfo]);
+  }, [requestCodespaces, setIsModalOpen, setPortInfo, currentCodespace?.display_name]);
 
   const authenticate = useCallback((token: string) => {
     if (socket.current?.readyState !== WebSocket.OPEN) {
@@ -140,7 +131,6 @@ export function App() {
       setStatusText('GitHub token is missing.');
       return;
     }
-    setGithubToken(token);
     socket.current.send(JSON.stringify({ type: 'authenticate', token }));
   }, []);
 
@@ -151,25 +141,29 @@ export function App() {
       return;
     }
     
-    setReconnectAttempts(currentAttempts => {
-      const nextAttempt = currentAttempts + 1;
-      if (nextAttempt <= 5) {
-        setStatusText(`Connection lost. Reconnecting... (Attempt ${nextAttempt}/5)`);
+    let attempts = 0;
+    const maxAttempts = 5;
+
+    const attemptReconnect = () => {
+      if (isManualDisconnect.current) return;
+
+      attempts++;
+      if (attempts <= maxAttempts) {
+        setStatusText(`Connection lost. Reconnecting... (Attempt ${attempts}/${maxAttempts})`);
         reconnectTimeout.current = window.setTimeout(() => {
-          // Use serverUrl from state instead of dependency to avoid circular reference
           const currentUrl = serverUrl;
           connect(currentUrl);
         }, 2000);
-        return nextAttempt;
       } else {
         setStatus('disconnected');
         setStatusText('Disconnected. Click to reconnect.');
         setConnectionStatus('disconnected');
         socket.current = null;
-        return currentAttempts; // Don't change the attempts count
       }
-    });
-  }, [serverUrl]); // Remove connect dependency to break circular reference
+    };
+
+    attemptReconnect();
+  }, [serverUrl]); // Removed connect from dependencies
 
   const connect = useCallback((serverUrlToConnect: string) => {
     if (socket.current) {
@@ -189,7 +183,6 @@ export function App() {
       setStatus('connected');
       setStatusText('Connected to server');
       setConnectionStatus('connected');
-      setReconnectAttempts(0);
       if (reconnectTimeout.current) {
         clearTimeout(reconnectTimeout.current);
         reconnectTimeout.current = null;
@@ -251,13 +244,10 @@ export function App() {
     socket.current = null;
     setCodespaces([]);
     setPortInfo({ ports: [], portCount: 0 });
-    setReconnectAttempts(0); // Reset reconnect attempts
   }, []);
 
   useEffect(() => {
-    console.log('Terminal useEffect: running');
     if (terminalRef.current && !terminalInstance.current) {
-      console.log('Terminal useEffect: initializing terminal');
       const terminal = new Terminal({
         cursorBlink: true,
         cursorStyle: 'block',
@@ -295,8 +285,6 @@ export function App() {
       terminalInstance.current = terminal;
       fitAddonInstance.current = fitAddon;
 
-      console.log('Terminal initialized:', terminalInstance.current);
-
       const resizeObserver = new ResizeObserver(entries => {
         for (const entry of entries) {
           if (entry.target === terminalRef.current && fitAddonInstance.current) {
@@ -314,7 +302,6 @@ export function App() {
       resizeObserver.observe(terminalRef.current);
 
       return () => {
-        console.log('Terminal useEffect: cleaning up');
         terminal.dispose();
         resizeObserver.disconnect();
       };
@@ -340,7 +327,6 @@ export function App() {
 
   // Event handlers for the new Preact components
   const handleOpenConnectionModal = useCallback(() => {
-    console.log('App: handleOpenConnectionModal called');
     setIsModalOpen(true);
   }, []);
 
@@ -352,16 +338,18 @@ export function App() {
   }, [status, isModalOpen]);
 
   const handleDisconnect = useCallback(() => {
-    console.log('App: handleDisconnect called');
     disconnect();
   }, [disconnect]);
 
   const handleModalConnect = useCallback((serverUrl: string, githubToken: string) => {
-    console.log('App: Received connect event', { serverUrl, githubToken });
     setStatusText('Connecting to server...');
     connect(serverUrl);
     // DO NOT close modal here.
-  }, [connect]);
+    if (githubToken) {
+      // Wait for connection to establish before authenticating
+      setTimeout(() => authenticate(githubToken), 1000);
+    }
+  }, [connect, authenticate]);
 
   const handleModalAuthenticate = useCallback((githubToken: string) => {
     setStatusText('Authenticating with GitHub...');
@@ -371,7 +359,7 @@ export function App() {
 
   const handleModalConnectCodespace = useCallback((codespaceName: string) => {
     // Find the codespace to get its display name
-    const selectedCodespace = codespaces.find(cs => cs.name === codespaceName);
+    const selectedCodespace = codespaces.find((cs: BranchInfo) => cs.name === codespaceName);
     const displayName = selectedCodespace?.display_name || selectedCodespace?.repository?.full_name || codespaceName;
     setStatusText(`Opening codespace ${displayName}...`);
     connectToCodespace(codespaceName);
@@ -383,11 +371,8 @@ export function App() {
   }, []);
 
   const handleOpenPortsDialog = useCallback(() => {
-    console.log('App: handleOpenPortsDialog called');
-    console.log('App: Current ports dialog state:', isPortsDialogOpen);
-    console.log('App: Current port info:', portInfo);
     setIsPortsDialogOpen(true);
-  }, [isPortsDialogOpen, portInfo]);
+  }, []);
 
   const handlePortsDialogClose = useCallback(() => {
     setIsPortsDialogOpen(false);
@@ -400,11 +385,8 @@ export function App() {
   }, []);
 
   const handleOpenBranchDialog = useCallback(() => {
-    console.log('App: handleOpenBranchDialog called');
-    console.log('App: Current branch dialog state:', isBranchDialogOpen);
-    console.log('App: Current codespace data:', currentCodespace);
     setIsBranchDialogOpen(true);
-  }, [isBranchDialogOpen, currentCodespace]);
+  }, []);
 
   const handleBranchDialogClose = useCallback(() => {
     setIsBranchDialogOpen(false);
@@ -417,8 +399,6 @@ export function App() {
         statusText={statusText} 
         portCount={portInfo.portCount}
         branchName={currentCodespace?.git_status?.ref || 'main'}
-        repositoryName={currentCodespace?.repository?.name}
-        isConnectedToCodespace={!!currentCodespace && status === 'connected'}
         gitStatus={currentCodespace?.git_status}
         onOpenConnectionModal={handleOpenConnectionModal}
         onDisconnect={handleDisconnect}
@@ -451,3 +431,4 @@ export function App() {
     </div>
   );
 }
+

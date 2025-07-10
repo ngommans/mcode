@@ -30,51 +30,22 @@ export interface EndpointInfo {
   tunnelUri: string;
 }
 
-export interface TunnelPort {
-  clusterId: string;
-  tunnelId: string;
-  portNumber: number;
-  labels?: string[];
-  protocol: string;
-  accessControl?: {
-    entries: Array<{
-      type: string;
-      provider: string;
-      isInherited: boolean;
-      isDeny: boolean;
-      subjects: string[];
-      scopes: string[];
-    }>;
-  };
-  options?: {
-    isGloballyAvailable: boolean;
-  };
-  status?: Record<string, unknown>;
-  portForwardingUris?: string[];
-  inspectionUri?: string;
-}
-
-export interface PortInfo {
-  userPorts: TunnelPort[]; // User-created forwarded ports
-  managementPorts: TunnelPort[]; // System management ports
-  allPorts: TunnelPort[]; // All ports combined
-  timestamp?: string;
-  error?: string; // Add error field for compatibility
-}
-
-// Alias for backwards compatibility
-export interface PortInformation extends PortInfo {}
+// Port types moved to ./port.ts for unified hierarchy
+// Re-export for backwards compatibility
+export type { TunnelPort, PortInformation, PortInfo } from './port.js';
+import type { PortInfo } from './port.js';
+import type { TunnelClient, TunnelManagementClient, RpcConnection } from './external.js';
 
 export interface TunnelConnectionResult {
   success: boolean;
   localPort?: number;
   sshPort?: number;
-  client?: unknown; // TunnelRelayTunnelClient - avoid importing external types
-  tunnelClient?: unknown; // Backwards compatibility
+  client?: TunnelClient; // TunnelRelayTunnelClient
+  tunnelClient?: TunnelClient; // Backwards compatibility
   portInfo: PortInfo;
   endpointInfo?: EndpointInfo | null;
-  tunnelManagementClient?: unknown; // TunnelManagementHttpClient
-  rpcConnection?: unknown; // CodespaceRPCInvoker
+  tunnelManagementClient?: TunnelManagementClient;
+  rpcConnection?: RpcConnection;
   error?: string;
   cleanup: () => void;
 }

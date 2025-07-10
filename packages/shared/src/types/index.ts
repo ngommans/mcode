@@ -5,6 +5,9 @@
 // WebSocket communication types
 export * from './websocket.js';
 
+// Unified port types - eliminates casting between representations
+export * from './port.js';
+
 // Tunnel and connection types
 export * from './tunnel.js';
 
@@ -13,6 +16,9 @@ export * from './config.js';
 
 // Server-side types
 export * from './server.js';
+
+// External library interfaces
+export * from './external.js';
 
 // Common utility types
 export interface ApiResponse<T = unknown> {

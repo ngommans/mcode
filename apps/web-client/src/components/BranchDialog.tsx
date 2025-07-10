@@ -1,6 +1,6 @@
 
 
-interface BranchInfo {
+export interface BranchInfo {
   repository?: {
     id: number;
     name: string;

@@ -723,7 +723,7 @@ export class MinimalTerminalClient {
     }
   }
 
-  private handleCodespacesList(message: any): void {
+  private handleCodespacesList(message: CodespacesListMessage): void {
     const codespaces = message.data || [];
     
     if (codespaces.length === 0) {
@@ -739,7 +739,7 @@ export class MinimalTerminalClient {
     this.populateCodespaceList(codespaces);
   }
 
-  private handleCodespaceState(message: any): void {
+  private handleCodespaceState(message: CodespaceStateMessage): void {
     this.currentCodespaceState = message.state;
     this.currentRepositoryFullName = message.repository_full_name;
     
@@ -783,7 +783,7 @@ export class MinimalTerminalClient {
     }
   }
 
-  private handlePortUpdate(message: any): void {
+  private handlePortUpdate(message: PortUpdateMessage): void {
     this.portInfo = {
       ports: message.ports || [],
       portCount: message.portCount || 0,

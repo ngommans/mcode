@@ -3,8 +3,10 @@
  */
 
 import type WebSocket from 'ws';
-import type { TunnelProperties, PortInformation, TerminalConnection, EndpointInfo } from './tunnel.js';
+import type { TunnelProperties, TerminalConnection, EndpointInfo } from './tunnel.js';
+import type { PortInformation } from './port.js';
 import type { Codespace } from './websocket.js';
+import type { RpcConnection, TunnelClient, TunnelManagementClient } from './external.js';
 
 // Simple interface for GitHubCodespaceConnector to avoid circular dependency
 // Only includes the methods we actually use
@@ -27,10 +29,10 @@ export interface TcodeWebSocket extends WebSocket {
   codespaceName?: string;
   
   // Tunnel-related properties
-  tunnelClient?: unknown; // TunnelRelayTunnelClient
-  tunnelManagementClient?: unknown; // TunnelManagementHttpClient
+  tunnelClient?: TunnelClient;
+  tunnelManagementClient?: TunnelManagementClient;
   tunnelProperties?: TunnelProperties;
-  rpcConnection?: unknown; // CodespaceRPCInvoker
+  rpcConnection?: RpcConnection;
   
   // Port and endpoint information
   portInfo?: PortInformation;
