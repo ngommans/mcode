@@ -6,11 +6,22 @@
 import { TunnelRelayTunnelClient } from '@microsoft/dev-tunnels-connections';
 import { ManagementApiVersions, TunnelManagementHttpClient } from '@microsoft/dev-tunnels-management';
 import { TunnelAccessScopes, TunnelProtocol } from '@microsoft/dev-tunnels-contracts';
-import type { TunnelProperties, TunnelConnectionResult, PortInformation } from 'tcode-shared';
+import type { TunnelProperties, TunnelConnectionResult, PortInformation, TunnelPort as SharedTunnelPort } from 'tcode-shared';
 import TunnelPortService from './TunnelPortService.js';
 import { createInvoker, type CodespaceRPCInvoker } from '../rpc/CodespaceRPCInvoker.js';
 
 import { logger } from '../utils/logger';
+
+// Helper function to convert PortMapping to SharedTunnelPort
+function convertPortMappingToSharedTunnelPort(mapping: any, clusterId: string, tunnelId: string): SharedTunnelPort {
+  return {
+    portNumber: mapping.localPort,
+    protocol: mapping.protocol || 'unknown',
+    clusterId,
+    tunnelId
+  };
+}
+
 
 interface TunnelReference {
   tunnelId: string;
@@ -103,9 +114,11 @@ export async function connectToTunnel(
 
     // Get initial port information using new API
     const initialPortState = portService.getPortForwardingState();
-    portInfo.allPorts = [...initialPortState.userPorts, ...initialPortState.managementPorts] as any[];
-    portInfo.userPorts = initialPortState.userPorts as any[];
-    portInfo.managementPorts = initialPortState.managementPorts as any[];
+    // PortForwardingState doesn't have allPorts, construct it from user + management ports
+    const allPortMappings = [...initialPortState.userPorts, ...initialPortState.managementPorts];
+    portInfo.allPorts = allPortMappings.map(p => convertPortMappingToSharedTunnelPort(p, tunnelProperties.clusterId, tunnelProperties.tunnelId));
+    portInfo.userPorts = initialPortState.userPorts.map(p => convertPortMappingToSharedTunnelPort(p, tunnelProperties.clusterId, tunnelProperties.tunnelId));
+    portInfo.managementPorts = initialPortState.managementPorts.map(p => convertPortMappingToSharedTunnelPort(p, tunnelProperties.clusterId, tunnelProperties.tunnelId));
 
     logger.info(`📊 Initial port state: ${portInfo.userPorts.length} user ports, ${portInfo.managementPorts.length} management ports`);
 
@@ -142,7 +155,7 @@ export async function connectToTunnel(
         return {
           success: true,
           client: client as any,
-          portInfo: await getUpdatedPortInfo(portService),
+          portInfo: await getUpdatedPortInfo(portService, tunnelProperties),
           sshPort: sshDetection.localPort,
           rpcConnection: rpcResult.rpcConnection as any,
           cleanup: () => cleanupConnection(client, portService)
@@ -163,7 +176,7 @@ export async function connectToTunnel(
       return {
         success: true,
         client,
-        portInfo: await getUpdatedPortInfo(portService),
+        portInfo: await getUpdatedPortInfo(portService, tunnelProperties),
         sshPort: fallbackSSHResult.localPort,
         rpcConnection: rpcResult.rpcConnection,
         cleanup: () => cleanupConnection(client, portService)
@@ -176,14 +189,15 @@ export async function connectToTunnel(
     return {
       success: true,
       client,
-      portInfo: await getUpdatedPortInfo(portService),
+      portInfo: await getUpdatedPortInfo(portService, tunnelProperties),
       sshPort: undefined,
       rpcConnection: rpcResult.rpcConnection,
       cleanup: () => cleanupConnection(client, portService)
     };
 
-  } catch (error: any) {
-    logger.error('❌ Clean tunnel connection failed:', { error: error.message });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('❌ Clean tunnel connection failed:', { error: errorMessage });
     
     // Cleanup on failure
     if (portService) {
@@ -202,7 +216,7 @@ export async function connectToTunnel(
     
     return {
       success: false,
-      error: error.message,
+      error: errorMessage,
       client: undefined,
       portInfo,
       cleanup: () => {}
@@ -264,9 +278,10 @@ async function createRPCConnectionAndStartSSH(
       return { error: `SSH server start failed: ${sshResult.message}` };
     }
 
-  } catch (error: any) {
-    logger.error('❌ RPC connection and SSH start failed:', { error: error.message });
-    return { error: error.message };
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('❌ RPC connection and SSH start failed:', { error: errorMessage });
+    return { error: errorMessage };
   }
 }
 
@@ -293,8 +308,9 @@ async function checkExistingSSHServerClean(
     logger.warn('⚠️  No existing SSH server found');
     return null;
     
-  } catch (error: any) {
-    logger.error('❌ Existing SSH server check failed:', { error: error.message });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('❌ Existing SSH server check failed:', { error: errorMessage });
     return null;
   }
 }
@@ -340,8 +356,9 @@ async function ensureSSHTunnelPortExists(
       logger.info(`✅ Tunnel port ${remoteSSHPort} already exists`);
     }
     
-  } catch (error: any) {
-    logger.error(`❌ Failed to create tunnel port ${remoteSSHPort}:`, { error: error.message });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`❌ Failed to create tunnel port ${remoteSSHPort}:`, { error: errorMessage });
     logger.warn(`📡 Continuing anyway - tunnel might handle dynamic forwarding...`);
   }
 }
@@ -372,8 +389,9 @@ async function triggerPortForwardingRefresh(client: TunnelRelayTunnelClient): Pr
       }
     }
     
-  } catch (error: any) {
-    logger.warn('⚠️  Port forwarding refresh failed:', { error: error.message });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.warn('⚠️  Port forwarding refresh failed:', { error: errorMessage });
     logger.warn('📡 Continuing anyway - tunnel might auto-refresh...');
   }
 }
@@ -381,7 +399,7 @@ async function triggerPortForwardingRefresh(client: TunnelRelayTunnelClient): Pr
 /**
  * Get updated port information from the port service
  */
-async function getUpdatedPortInfo(portService: TunnelPortService): Promise<PortInformation> {
+async function getUpdatedPortInfo(portService: TunnelPortService, tunnelProperties: TunnelProperties): Promise<PortInformation> {
   try {
     // Refresh port state to get latest information
     await portService.refreshPortState();
@@ -389,13 +407,14 @@ async function getUpdatedPortInfo(portService: TunnelPortService): Promise<PortI
     const state = portService.getPortForwardingState();
     
     return {
-      userPorts: state.userPorts as any[],
-      managementPorts: state.managementPorts as any[],
-      allPorts: [...state.userPorts, ...state.managementPorts] as any[]
+      userPorts: state.userPorts.map(p => convertPortMappingToSharedTunnelPort(p, tunnelProperties.clusterId, tunnelProperties.tunnelId)),
+      managementPorts: state.managementPorts.map(p => convertPortMappingToSharedTunnelPort(p, tunnelProperties.clusterId, tunnelProperties.tunnelId)),
+      allPorts: [...state.userPorts, ...state.managementPorts].map(p => convertPortMappingToSharedTunnelPort(p, tunnelProperties.clusterId, tunnelProperties.tunnelId))
     };
     
-  } catch (error: any) {
-    logger.warn('⚠️  Failed to get updated port info:', { error: error.message });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.warn('⚠️  Failed to get updated port info:', { error: errorMessage });
     return { userPorts: [], managementPorts: [], allPorts: [] };
   }
 }

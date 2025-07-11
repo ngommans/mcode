@@ -91,20 +91,24 @@ export class PortConverter {
   /**
    * Filter ports by criteria - common operation
    */
-  static filterUserPorts(ports: TunnelPort[]): TunnelPort[] {
+  static filterUserPorts(ports?: TunnelPort[] | null): TunnelPort[] {
+    if (!ports) return [];
+    
     return ports.filter(port => 
-      port.labels?.includes('UserForwardedPort') || 
-      (!port.labels?.includes('InternalPort') && port.portNumber !== 22)
+      port && port.portNumber && (port.labels?.includes('UserForwardedPort')
+      || (!port.labels?.includes('InternalPort') && port.portNumber !== 22))
     );
   }
 
   /**
    * Filter management/system ports
    */
-  static filterManagementPorts(ports: TunnelPort[]): TunnelPort[] {
+  static filterManagementPorts(ports?: TunnelPort[] | null): TunnelPort[] {
+    if (!ports) return [];
+    
     return ports.filter(port => 
-      port.labels?.includes('InternalPort') || 
-      port.portNumber === 22
+      port && port.portNumber 
+      && (port.labels?.includes('InternalPort') || port.portNumber !== 22)
     );
   }
 }

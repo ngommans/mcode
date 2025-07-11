@@ -5,13 +5,45 @@
 
 import { TunnelRelayTunnelClient } from '@microsoft/dev-tunnels-connections';
 import { ManagementApiVersions, TunnelManagementHttpClient } from '@microsoft/dev-tunnels-management';
-import { TunnelAccessScopes, TunnelProtocol } from '@microsoft/dev-tunnels-contracts';
-import type { TunnelProperties, TunnelConnectionResult, PortInformation } from 'tcode-shared';
+import { TunnelAccessScopes, TunnelProtocol, type TunnelPort as MicrosoftTunnelPort } from '@microsoft/dev-tunnels-contracts';
+import type { TunnelProperties, TunnelConnectionResult, PortInformation, TunnelPort as SharedTunnelPort } from 'tcode-shared';
 import * as grpc from '@grpc/grpc-js';
 import * as net from 'net';
 import { createInvoker, type CodespaceRPCInvoker } from '../rpc/CodespaceRPCInvoker.js';
+import { TunnelClientWrapper, type ExtendedTunnelClient } from '../types/tunnel-extensions.js';
 
 import { logger } from '../utils/logger';
+
+// Helper function to convert MicrosoftTunnelPort to SharedTunnelPort
+function convertMicrosoftTunnelPortToSharedTunnelPort(msPort: MicrosoftTunnelPort): SharedTunnelPort | null {
+  if (msPort.portNumber === undefined || msPort.protocol === undefined || msPort.clusterId === undefined || msPort.tunnelId === undefined) {
+    logger.warn(`Skipping MicrosoftTunnelPort due to missing essential properties for SharedTunnelPort conversion: ${JSON.stringify(msPort)}`);
+    return null;
+  }
+  return {
+    portNumber: msPort.portNumber,
+    protocol: msPort.protocol.toString(), // Ensure protocol is string
+    clusterId: msPort.clusterId,
+    tunnelId: msPort.tunnelId,
+    labels: msPort.labels,
+    accessControl: msPort.accessControl ? {
+      entries: msPort.accessControl.entries?.map(entry => ({
+        type: entry.type || '',
+        provider: entry.provider || '',
+        isInherited: entry.isInherited || false,
+        isDeny: entry.isDeny || false,
+        subjects: entry.subjects || [],
+        scopes: entry.scopes || []
+      })) || []
+    } : undefined,
+    options: msPort.options ? {
+      isGloballyAvailable: msPort.options.isGloballyAvailable || false
+    } : undefined,
+    status: msPort.status as Record<string, unknown>,
+    portForwardingUris: msPort.portForwardingUris,
+    inspectionUri: msPort.inspectionUri
+  };
+}
 
 interface TunnelReference {
   tunnelId: string;
@@ -86,8 +118,9 @@ async function checkExistingSSHServer(tunnelClient: TunnelRelayTunnelClient): Pr
         }
       }
       logger.warn('❌ No accessible SSH ports found despite port 22 being forwarded');
-    } catch (error: any) {
-      logger.warn(`⏱️  SSH port detection timeout: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.warn(`⏱️  SSH port detection timeout: ${errorMessage}`);
       logger.info('🔄 Proceeding to RPC phase...');
     }
     
@@ -166,8 +199,9 @@ async function createRPCInvokerAndStartSSH(
       };
     }
     
-  } catch (error: any) {
-    logger.error('Failed to create RPC invoker and start SSH:', { error: error.message });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('Failed to create RPC invoker and start SSH:', { error: errorMessage });
     
     // Clean up RPC invoker if it was created
     if (rpcInvoker) {
@@ -179,7 +213,7 @@ async function createRPCInvokerAndStartSSH(
     }
     
     return {
-      error: `RPC setup failed: ${error.message}`
+      error: `RPC setup failed: ${error instanceof Error ? error.message : String(error)}`
     };
   }
 }
@@ -230,14 +264,14 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
       accessToken: tunnelProperties.managePortsAccessToken,
     });
     
-    // Categorize ports (cast to any to handle type differences)
-    portInfo.allPorts = existingPorts as any[];
-    portInfo.userPorts = existingPorts.filter(port => 
-      port.labels && port.labels.includes('UserForwardedPort')
-    ) as any[];
-    portInfo.managementPorts = existingPorts.filter(port => 
-      port.labels && port.labels.includes('InternalPort')
-    ) as any[];
+    // Categorize ports using Microsoft TunnelPort interface
+    portInfo.allPorts = existingPorts.map(p => convertMicrosoftTunnelPortToSharedTunnelPort(p)).filter((p): p is SharedTunnelPort => p !== null);
+    portInfo.userPorts = existingPorts.filter((port: MicrosoftTunnelPort) => 
+      port.labels?.includes('UserForwardedPort') ?? false
+    ).map(p => convertMicrosoftTunnelPortToSharedTunnelPort(p)).filter((p): p is SharedTunnelPort => p !== null);
+    portInfo.managementPorts = existingPorts.filter((port: MicrosoftTunnelPort) => 
+      port.labels?.includes('InternalPort') ?? false
+    ).map(p => convertMicrosoftTunnelPortToSharedTunnelPort(p)).filter((p): p is SharedTunnelPort => p !== null);
 
     logger.info(`Found ${portInfo.userPorts.length} user ports, ${portInfo.managementPorts.length} management ports`);
 
@@ -410,23 +444,14 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
         
         logger.info(`📡 Step 1: Calling RefreshPorts() to inform codespace of new port...`);
         
-        // Call RefreshPorts to trigger the codespace to send tcpip-forward request
-        if (typeof (client as any).refreshPorts === 'function') {
-          await (client as any).refreshPorts();
+        // Use type-safe wrapper for refresh ports operation
+        const clientWrapper = new TunnelClientWrapper(client);
+        const refreshSuccess = await clientWrapper.refreshPorts();
+        
+        if (refreshSuccess) {
           logger.info(`✅ RefreshPorts() completed - should trigger tcpip-forward from codespace`);
         } else {
-          logger.warn(`⚠️  refreshPorts method not available, trying alternative names...`);
-          
-          // Try alternative method names
-          if (typeof (client as any).RefreshPorts === 'function') {
-            await (client as any).RefreshPorts();
-            logger.info(`✅ RefreshPorts() (capitalized) completed`);
-          } else if (typeof (client as any).refresh === 'function') {
-            await (client as any).refresh();
-            logger.info(`✅ refresh() completed`);
-          } else {
-            logger.warn(`⚠️  No refresh methods found - will try direct waitForForwardedPort`);
-          }
+          logger.warn(`⚠️  No refresh methods available - will try direct waitForForwardedPort`);
         }
         
         logger.info(`📡 Step 2: Waiting for port ${remoteSSHPort} to be forwarded (timeout: 5s)...`);
@@ -455,22 +480,18 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
           logger.info(`🔧 Will attempt to find the local port via tunnel client APIs...`);
           
           // Try to get the local port from the tunnel client's port forwarding service
-          const sshSession = (client as any).sshSession;
-          if (sshSession) {
+          const clientWrapper = new TunnelClientWrapper(client);
+          const pfs = await clientWrapper.getPortForwardingService();
+          if (pfs) {
             try {
-              const pfs = sshSession.getService ? sshSession.getService('PortForwardingService') : null;
-              if (pfs && (pfs as any).listeners) {
-                const listeners = (pfs as any).listeners;
-                logger.debug(`🔍 Checking ${listeners.size} active listeners for port ${remoteSSHPort}...`);
-                
-                for (const [localPort, listener] of listeners) {
-                  const remotePort = (listener as any).remotePort;
-                  if (remotePort === remoteSSHPort) {
-                    logger.info(`🎯 FOUND: Local port ${localPort} forwards to remote port ${remoteSSHPort}`);
-                    extractedLocalPort = localPort;
-                    detectedSSHPort = localPort;
-                    break;
-                  }
+              logger.debug(`🔍 Checking ${pfs.listeners.size} active listeners for port ${remoteSSHPort}...`);
+              
+              for (const [localPort, listener] of pfs.listeners) {
+                if (listener.remotePort === remoteSSHPort) {
+                  logger.info(`🎯 FOUND: Local port ${localPort} forwards to remote port ${remoteSSHPort}`);
+                  extractedLocalPort = localPort;
+                  detectedSSHPort = localPort;
+                  break;
                 }
               }
             } catch (pfsError) {
@@ -677,14 +698,19 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
       }
       
       // If we still haven't found the port, try tunnel session forwarding
-      if (extractedLocalPort === 2222 && (client as any).tunnelSession) {
-        try {
-          logger.info('Attempting to forward port via tunnel session...');
-          const forwarded = await (client as any).tunnelSession.forwardPort({ remotePort: sshPort });
-          extractedLocalPort = forwarded.localPort;
-          logger.info(`Port forwarded via tunnel session: remote ${sshPort} -> local ${extractedLocalPort}`);
-        } catch (forwardError: any) {
-          logger.warn('Port forwarding via session failed:', { forwardError: forwardError.message });
+      if (extractedLocalPort === 2222) {
+        const clientWrapper = new TunnelClientWrapper(client);
+        const tunnelSession = clientWrapper.getTunnelSession();
+        if (tunnelSession) {
+          try {
+            logger.info('Attempting to forward port via tunnel session...');
+            const forwarded = await tunnelSession.forwardPort({ remotePort: sshPort });
+            extractedLocalPort = forwarded.localPort;
+            logger.info(`Port forwarded via tunnel session: remote ${sshPort} -> local ${extractedLocalPort}`);
+          } catch (forwardError: unknown) {
+            const errorMessage = forwardError instanceof Error ? forwardError.message : String(forwardError);
+            logger.warn('Port forwarding via session failed:', { forwardError: errorMessage });
+          }
         }
       }
     }
@@ -698,22 +724,23 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
     logger.debug('🔍 === COMPREHENSIVE TUNNEL CONFIG DUMP ===');
     
     // 1. Tunnel Client State
+    const clientWrapper = new TunnelClientWrapper(client);
     logger.debug('📊 TUNNEL CLIENT STATE:');
     logger.debug('- Client type:', { type: client.constructor.name });
-    logger.debug('- Connected:', { connected: !!(client as any).isConnected || !!(client as any).connected });
-    logger.debug('- Session available:', { available: !!(client as any).session });
-    logger.debug('- SSH session available:', { available: !!(client as any).sshSession });
-    logger.debug('- Tunnel session available:', { available: !!(client as any).tunnelSession });
-    logger.debug('- Endpoints available:', { available: !!(client as any).endpoints });
+    logger.debug('- Connected:', { connected: clientWrapper.isConnected() });
+    logger.debug('- Session available:', { available: !!(client as ExtendedTunnelClient).session });
+    logger.debug('- SSH session available:', { available: !!(client as ExtendedTunnelClient).sshSession });
+    logger.debug('- Tunnel session available:', { available: !!clientWrapper.getTunnelSession() });
+    logger.debug('- Endpoints available:', { available: clientWrapper.getEndpoints().length > 0 });
     
     // 2. SSH Session Details
-    const sshSession = (client as any).sshSession;
+    const sshSession = (client as ExtendedTunnelClient).sshSession;
     if (sshSession) {
       logger.debug('');
       logger.debug('🔐 SSH SESSION STATE:');
       logger.debug('- SSH session type:', { type: sshSession.constructor.name });
-      logger.debug('- Is authenticated:', { authenticated: !!(sshSession as any).isAuthenticated || !!(sshSession as any).authenticated });
-      logger.debug('- Session ID:', { id: (sshSession as any).sessionId || 'N/A' });
+      logger.debug('- Is authenticated:', { authenticated: sshSession.isAuthenticated ?? sshSession.authenticated ?? false });
+      logger.debug('- Session ID:', { id: sshSession.sessionId ?? 'N/A' });
       logger.debug('- Available methods:', { methods: Object.getOwnPropertyNames(sshSession).filter(name => typeof (sshSession as any)[name] === 'function') });
       
       // Port forwarding service details
@@ -766,22 +793,22 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
     }
     
     // 3. Tunnel Session Details (if available)
-    const tunnelSession = (client as any).tunnelSession;
+    const tunnelSession = clientWrapper.getTunnelSession();
     if (tunnelSession) {
       logger.debug('');
       logger.debug('🚇 TUNNEL SESSION STATE:');
       logger.debug('- Tunnel session type:', { type: tunnelSession.constructor.name });
       logger.debug('- Available methods:', { methods: Object.getOwnPropertyNames(tunnelSession).filter(name => typeof (tunnelSession as any)[name] === 'function') });
-      logger.debug('- Local forwarded ports available:', { available: !!(tunnelSession as any).localForwardedPorts });
-      logger.debug('- Forwarded ports available:', { available: !!(tunnelSession as any).forwardedPorts });
+      logger.debug('- Local forwarded ports available:', { available: !!tunnelSession.localForwardedPorts });
+      logger.debug('- Forwarded ports available:', { available: !!tunnelSession.forwardedPorts });
     }
 
     // Get endpoint information for URL construction
-    const endpoints = (client as any).endpoints || [];
+    const endpoints = clientWrapper.getEndpoints();
     logger.debug('');
     logger.debug('🌐 ENDPOINT INFORMATION:');
     logger.debug('- Endpoints count:', { count: endpoints.length });
-    endpoints.forEach((endpoint: any, index: number) => {
+    endpoints.forEach((endpoint, index) => {
       logger.debug(`- Endpoint ${index}:`, {
         portUriFormat: endpoint.portUriFormat,
         portSshCommandFormat: endpoint.portSshCommandFormat,
@@ -809,19 +836,19 @@ export async function forwardSshPortOverTunnel(tunnelProperties: TunnelPropertie
     logger.debug('');
 
     // Update port info with fresh data after connection
-    portInfo.allPorts = refreshedPorts as any[];
-    portInfo.userPorts = refreshedPorts.filter(port => 
-      port.labels && port.labels.includes('UserForwardedPort')
-    ) as any[];
-    portInfo.managementPorts = refreshedPorts.filter(port => 
-      port.labels && port.labels.includes('InternalPort')
-    ) as any[];
+    portInfo.allPorts = refreshedPorts.map(p => convertMicrosoftTunnelPortToSharedTunnelPort(p)).filter((p): p is SharedTunnelPort => p !== null);
+    portInfo.userPorts = refreshedPorts.filter((port: MicrosoftTunnelPort) => 
+      port.labels?.includes('UserForwardedPort') ?? false
+    ).map(p => convertMicrosoftTunnelPortToSharedTunnelPort(p)).filter((p): p is SharedTunnelPort => p !== null);
+    portInfo.managementPorts = refreshedPorts.filter((port: MicrosoftTunnelPort) => 
+      port.labels?.includes('InternalPort') ?? false
+    ).map(p => convertMicrosoftTunnelPortToSharedTunnelPort(p)).filter((p): p is SharedTunnelPort => p !== null);
 
     return { 
       success: true,
       localPort: extractedLocalPort, 
-      client: client as any,
-      tunnelClient: client as any, // Backwards compatibility
+      client: client as ExtendedTunnelClient,
+      tunnelClient: client as ExtendedTunnelClient, // Backwards compatibility
       portInfo: portInfo,
       endpointInfo: endpointInfo,
       tunnelManagementClient: tunnelManagementClient,
@@ -869,13 +896,13 @@ export async function getPortInformation(
     };
 
     return portInfo;
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Failed to get port information:', { error });
     return { 
       allPorts: [], 
       userPorts: [], 
       managementPorts: [], 
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       timestamp: new Date().toISOString()
     };
   }

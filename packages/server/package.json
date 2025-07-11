@@ -16,8 +16,9 @@
     "tcode-server": "dist/src/index.js"
   },
   "scripts": {
-    "build": "tsc",
-    "build:prod": "tsc --project tsconfig.json",
+    "build": "tsc && npm run copy:proto",
+    "copy:proto": "mkdir -p dist/src/rpc/proto && cp src/rpc/proto/*.proto dist/src/rpc/proto/",
+    "build:prod": "tsc --project tsconfig.json && npm run copy:proto",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/src/index.js",
     "clean": "rimraf dist",

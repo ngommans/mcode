@@ -8,12 +8,12 @@ import { logger } from '../utils/logger';
 
 export interface TraceMessage {
   timestamp: Date;
-  level: any;
-  eventId: any;
+  level: string | number;
+  eventId: string | number;
   message: string;
   error?: any;
   category: 'port_forwarding' | 'connection' | 'auth' | 'general';
-  parsedData?: Record<string, any>;
+  parsedData?: Record<string, unknown>;
 }
 
 export interface PortForwardingTrace extends TraceMessage {
@@ -128,8 +128,9 @@ export class TraceListenerService {
       // Optional: Log to console based on category
       this.logTraceMessage(traceMessage);
 
-    } catch (error: any) {
-      logger.error('⚠️  Error processing trace message:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('⚠️  Error processing trace message:', new Error(errorMessage));
     }
   }
 

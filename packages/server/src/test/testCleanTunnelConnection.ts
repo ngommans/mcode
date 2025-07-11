@@ -105,11 +105,15 @@ async function testCleanTunnelConnection(): Promise<void> {
       }
     }
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('💥 === TUNNEL CONNECTION TEST CRASHED ===');
-    logger.error(`Error: ${error.message}`);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    logger.error(`Error: ${errorMessage}`);
     logger.error('Stack trace:');
-    logger.error(error.stack);
+    if (errorStack) {
+      logger.error(errorStack);
+    }
   }
   
   logger.info('');

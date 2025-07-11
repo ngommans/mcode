@@ -82,8 +82,9 @@ class PortForwardingManager {
       // Notify all callbacks of initial state
       this.notifyStateChange();
       
-    } catch (error: any) {
-      logger.error('❌ Failed to initialize port forwarding manager:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('❌ Failed to initialize port forwarding manager:', new Error(errorMessage));
       throw error;
     }
   }
@@ -123,8 +124,9 @@ class PortForwardingManager {
       
       logger.info(`📊 Initial port state: ${this.state.userPorts.length} user ports, ${this.state.managementPorts.length} management ports`);
       
-    } catch (error: any) {
-      logger.warn('⚠️  Some port detection methods failed during initialization:', { error: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.warn('⚠️  Some port detection methods failed during initialization:', { error: errorMessage });
     }
   }
 
@@ -180,8 +182,9 @@ class PortForwardingManager {
 
       return detectedPorts;
       
-    } catch (error: any) {
-      logger.warn('⚠️  Failed to query tunnel public arrays:', { error: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.warn('⚠️  Failed to query tunnel public arrays:', { error: errorMessage });
       return [];
     }
   }
@@ -224,8 +227,9 @@ class PortForwardingManager {
       
       return detectedPorts;
       
-    } catch (error: any) {
-      logger.warn('⚠️  Failed to query tunnel management ports:', { error: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.warn('⚠️  Failed to query tunnel management ports:', { error: errorMessage });
       return [];
     }
   }
@@ -280,8 +284,9 @@ class PortForwardingManager {
       
       return detectedPorts;
       
-    } catch (error: any) {
-      logger.warn('⚠️  Failed to query PortForwardingService listeners:', { error: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.warn('⚠️  Failed to query PortForwardingService listeners:', { error: errorMessage });
       return [];
     }
   }
@@ -328,8 +333,9 @@ class PortForwardingManager {
       // Set up timeout-based polling as fallback
       this.setupPollingFallback();
       
-    } catch (error: any) {
-      logger.warn('⚠️  Failed to set up port forwarding listeners:', { error: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.warn('⚠️  Failed to set up port forwarding listeners:', { error: errorMessage });
     }
   }
 
@@ -341,8 +347,9 @@ class PortForwardingManager {
     setInterval(async () => {
       try {
         await this.refreshPortState();
-      } catch (error: any) {
-        logger.error('⚠️  Port state refresh failed:', error);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.error('⚠️  Port state refresh failed:', new Error(errorMessage));
       }
     }, 30000);
   }
@@ -414,8 +421,9 @@ class PortForwardingManager {
       logger.warn(`⚠️  Port ${remotePort} forwarded but local mapping not found`);
       return null;
       
-    } catch (error: any) {
-      logger.warn(`❌ WaitForForwardedPort failed for port ${remotePort}:`, { error: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.warn(`❌ WaitForForwardedPort failed for port ${remotePort}:`, { error: errorMessage });
       return null;
     }
   }
@@ -461,8 +469,9 @@ class PortForwardingManager {
     
     try {
       await this.queryInitialPortState();
-    } catch (error: any) {
-      logger.error('Failed to refresh port state:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('Failed to refresh port state:', new Error(errorMessage));
     }
   }
 
@@ -548,8 +557,9 @@ class PortForwardingManager {
     for (const callback of this.updateCallbacks) {
       try {
         callback(this.getPortState());
-      } catch (error: any) {
-        logger.error('Error in port state change callback:', error);
+      } catch (error: unknown) {
+        const errorObj = error instanceof Error ? error : new Error(String(error));
+        logger.error('Error in port state change callback:', errorObj);
       }
     }
   }

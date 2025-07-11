@@ -212,8 +212,9 @@ export async function createInvoker(
     
     return createInvokerInterface(invoker);
     
-  } catch (error: any) {
-    logger.error('Failed to create RPC invoker:', error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('Failed to create RPC invoker:', new Error(errorMessage));
     await cleanup(invoker);
     throw error;
   }
@@ -326,8 +327,9 @@ async function attemptRPCPortForwarding(tunnelClient: TunnelRelayTunnelClient): 
         }
       }
       
-    } catch (error: any) {
-      logger.warn(`⏱️  RPC port detection timeout: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.warn(`⏱️  RPC port detection timeout: ${errorMessage}`);
     }
     
     // TODO: Implement manual port forwarding if not automatically forwarded
@@ -335,8 +337,9 @@ async function attemptRPCPortForwarding(tunnelClient: TunnelRelayTunnelClient): 
     logger.warn('No existing RPC port forwarding found - would need manual setup');
     return null;
     
-  } catch (error: any) {
-    logger.error(`RPC port forwarding detection failed:`, error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`RPC port forwarding detection failed:`, new Error(errorMessage));
     return null;
   }
 }
@@ -403,9 +406,10 @@ async function loadProtoDefinitions(): Promise<void> {
     codespaceProtoRoot = await protobuf.load(path.join(protoDir, 'codespace_host_service.proto'));
     logger.info('✅ Loaded Codespace service proto definitions');
     
-  } catch (error: any) {
-    logger.error('❌ Failed to load proto definitions:', { error: error.message });
-    throw new Error(`Proto loading failed: ${error.message}`);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('❌ Failed to load proto definitions:', { error: errorMessage });
+    throw new Error(`Proto loading failed: ${errorMessage}`);
   }
 }
 
@@ -491,8 +495,9 @@ async function callStartRemoteServerAsync(
       (arg: Buffer) => {    // Response deserializer
         try {
           return deserializeStartRemoteServerResponse(arg);
-        } catch (error) {
-          logger.error('Failed to deserialize protobuf response:', { error });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          logger.error('Failed to deserialize protobuf response:', { error: errorMessage });
           return { Result: false, ServerPort: '', User: '', Message: 'Failed to parse protobuf response' };
         }
       },
@@ -554,8 +559,9 @@ async function callNotifyCodespaceOfClientActivity(
       (arg: Buffer) => {    // Response deserializer
         try {
           return deserializeNotifyCodespaceResponse(arg);
-        } catch (error) {
-          logger.error('Failed to deserialize protobuf response:', { error });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          logger.error('Failed to deserialize protobuf response:', { error: errorMessage });
           return { Result: false, Message: 'Failed to parse protobuf response' };
         }
       },
@@ -600,8 +606,9 @@ async function notifyCodespaceOfClientActivity(invoker: InvokerImpl, activity: s
     } else {
       logger.warn(`⚠️  Activity notification failed: ${result.Message}`);
     }
-  } catch (error: any) {
-    logger.error('Failed to send activity notification:', { error: error.message });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('Failed to send activity notification:', { error: errorMessage });
     // Don't throw - activity notifications are non-critical
   }
 }
@@ -646,13 +653,14 @@ function startHeartbeat(invoker: InvokerImpl): void {
         reason = 'activity';
       }
       
-      notifyCodespaceOfClientActivity(invoker, reason).catch((error) => {
+      notifyCodespaceOfClientActivity(invoker, reason).catch((error: unknown) => {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         // If gRPC fails, it likely means the tunnel is down
-        if (error.message?.includes('UNAVAILABLE') || error.message?.includes('ECONNREFUSED')) {
+        if (errorMessage.includes('UNAVAILABLE') || errorMessage.includes('ECONNREFUSED')) {
           logger.warn('🔌 gRPC connection lost - marking as disconnected');
           markAsDisconnected(invoker);
         } else {
-          logger.error('Heartbeat failed:', { error });
+          logger.error('Heartbeat failed:', { error: errorMessage });
         }
       });
     }
@@ -772,8 +780,9 @@ async function testGRPCConnection(client: grpc.Client): Promise<{ success: boole
     } else {
       return { success: false, error: `Channel state: ${state}` };
     }
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return { success: false, error: errorMessage };
   }
 }
 
@@ -875,13 +884,14 @@ function createInvokerInterface(invoker: InvokerImpl): CodespaceRPCInvoker {
           };
         }
         
-      } catch (error: any) {
-        logger.error('❌ SSH server start failed:', { error: error.message });
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.error('❌ SSH server start failed:', { error: errorMessage });
         return {
           port: 0,
           user: '',
           success: false,
-          message: `SSH server start failed: ${error.message}`
+          message: `SSH server start failed: ${errorMessage}`
         };
       }
     },

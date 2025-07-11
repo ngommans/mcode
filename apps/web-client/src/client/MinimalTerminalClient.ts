@@ -40,6 +40,7 @@ export class MinimalTerminalClient {
   private isIntentionalDisconnect = false;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
+  private reconnectTimeout: number | null = null;
   
   // Codespace state
   private currentCodespaceName: string | null = null;
@@ -495,6 +496,16 @@ export class MinimalTerminalClient {
       this.socket.close();
     }
     
+    // Reset reconnect attempts when user manually initiates connection
+    this.reconnectAttempts = 0;
+    this.isIntentionalDisconnect = false;
+    
+    // Clear any pending reconnect timeout
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+    
     this.updateInfoBox('Connecting to server...');
     const connectServerButton = this._getDomElement<HTMLButtonElement>('connectServerButton');
     
@@ -552,8 +563,15 @@ export class MinimalTerminalClient {
         if (!this.isIntentionalDisconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
           this.reconnectAttempts++;
           this.addStatusMessage(`Reconnecting... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-          setTimeout(() => this.connect(url, this.githubToken || ''), 2000);
-        } else {
+          this.reconnectTimeout = setTimeout(() => this.connect(url, this.githubToken || ''), 2000) as any;
+        } else if (!this.isIntentionalDisconnect) {
+          // Max reconnect attempts reached
+          this.addStatusMessage(`Connection failed after ${this.maxReconnectAttempts} attempts`);
+          this.updateInfoBox(`Failed to reconnect after ${this.maxReconnectAttempts} attempts. Please check the server and try again.`, true);
+        }
+        
+        // Only reset intentional disconnect flag if it was intentional
+        if (this.isIntentionalDisconnect) {
           this.isIntentionalDisconnect = false;
         }
       };
@@ -839,6 +857,12 @@ export class MinimalTerminalClient {
 
   disconnect(): void {
     this.isIntentionalDisconnect = true;
+    
+    // Clear any pending reconnect timeout
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
     
     if (this.socket) {
       this.socket.send(JSON.stringify({

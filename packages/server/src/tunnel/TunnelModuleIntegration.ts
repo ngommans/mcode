@@ -113,13 +113,14 @@ export async function establishCleanTunnelConnection(
       traceService
     };
 
-  } catch (error: any) {
-    logger.error('❌ Clean tunnel connection failed:', { error: error.message });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('❌ Clean tunnel connection failed:', { error: errorMessage });
     
     // Cleanup on failure
     portService.cleanup();
     
-    throw new Error(`Clean tunnel connection failed: ${error.message}`);
+    throw new Error(`Clean tunnel connection failed: ${errorMessage}`);
   }
 }
 
