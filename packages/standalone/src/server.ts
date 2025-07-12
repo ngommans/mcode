@@ -32,12 +32,16 @@ const wss = new WebSocketServer({ server: httpServer });
 
 // Enhanced WebSocket handler that supports GITHUB_TOKEN environment variable fallback
 class StandaloneWebSocketHandler extends CodespaceWebSocketHandler {
-  
-  constructor(options: ServerOptions = {}) {
-    super(options);
+  // Save a reference to the parent's handleConnection                                                 │
+ private originalHandleConnection: (ws: WebSocket) => void;
+
+  constructor() {
+    super();
+    const parent = new CodespaceWebSocketHandler();
+    this.originalHandleConnection = parent.handleConnection.bind(parent);    
   }
   
-  handleConnection = (ws: WebSocket): void => {
+  handleConnection = (ws: WebSocket): void => { 
     console.log('New client connected to standalone server');
     
     // Store the original message handler
@@ -82,17 +86,17 @@ class StandaloneWebSocketHandler extends CodespaceWebSocketHandler {
     };
     
     // Call the parent's handleConnection implementation
-    super.handleConnection(ws);
-  };
+    this.originalHandleConnection(ws);
+  }
 }
 
 // Use enhanced WebSocket handler only if GITHUB_TOKEN is available
 let wsHandler: CodespaceWebSocketHandler;
 if (process.env.GITHUB_TOKEN) {
   console.warn('🔑 GITHUB_TOKEN environment variable detected - enabling automatic token fallback for unauthenticated requests');
-  wsHandler = new StandaloneWebSocketHandler({ debugMode: false });
+  wsHandler = new StandaloneWebSocketHandler();
 } else {
-  wsHandler = new CodespaceWebSocketHandler({ debugMode: false });
+  wsHandler = new CodespaceWebSocketHandler();
 }
 
 wss.on('connection', wsHandler.handleConnection);

@@ -17,7 +17,7 @@ import {
   type CodespaceConnector
 } from 'tcode-shared';
 //import { forwardSshPortOverTunnel } from '../tunnel/TunnelModule.js';
-import { connectToTunnel } from '../tunnel/TunnelModuleClean.js';
+import { connectToTunnel } from '../tunnel/TunnelModule.js';
 import { Ssh2Connector } from './Ssh2Connector.js';
 import { logger } from '../utils/logger.js';
 import type { CodespaceWebSocketHandler } from '../handlers/CodespaceWebSocketHandler.js';

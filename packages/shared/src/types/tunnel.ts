@@ -40,7 +40,7 @@ export interface TunnelConnection {
   /**
    * Get current port information from the connected tunnel
    */
-  getPortInformation(): Promise<PortInformation>;
+  getPortInformation(): PortInformation;
 
   /**
    * Refresh port information by fetching latest tunnel state

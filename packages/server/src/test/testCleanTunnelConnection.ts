@@ -3,7 +3,7 @@
  * Run this to test the API-based port detection and clean service architecture
  */
 
-import { connectToTunnel } from '../tunnel/TunnelModuleClean.js';
+import { connectToTunnel } from '../tunnel/TunnelModule.js';
 import type { TunnelProperties, TunnelConnectionResult } from 'tcode-shared';
 import { TraceLevel } from '@microsoft/dev-tunnels-ssh';
 import { TunnelRelayTunnelClient } from '@microsoft/dev-tunnels-connections';

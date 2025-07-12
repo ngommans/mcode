@@ -11,7 +11,7 @@ import TunnelPortService from './TunnelPortService.js';
 import { createInvoker, type CodespaceRPCInvoker } from '../rpc/CodespaceRPCInvoker.js';
 import { PortMapping } from './PortForwardingManager.js';
 
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger.js';
 
 // Helper function to convert PortMapping to SharedTunnelPort
 function convertPortMappingToSharedTunnelPort(mapping: PortMapping, clusterId: string, tunnelId: string): SharedTunnelPort {
