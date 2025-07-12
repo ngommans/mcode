@@ -31,6 +31,7 @@ export function App() {
   const reconnectTimeout = useRef<number | null>(null);
   const isManualDisconnect = useRef<boolean>(false);
   const reconnectAttempt = useRef<number>(0); // New: Track reconnection attempts
+  const connectRef = useRef<((url: string) => void) | null>(null);
 
   const requestCodespaces = useCallback(() => {
     if (socket.current?.readyState !== WebSocket.OPEN) {
@@ -135,35 +136,6 @@ export function App() {
     socket.current.send(JSON.stringify({ type: 'authenticate', token }));
   }, []);
 
-  const handleReconnect = useCallback(() => {
-    // Don't reconnect if it was a manual disconnect
-    if (isManualDisconnect.current) {
-      isManualDisconnect.current = false;
-      return;
-    }
-    
-    const INITIAL_RECONNECT_DELAY = 1000; // 1 second
-    const MAX_RECONNECT_DELAY = 30000; // 30 seconds
-    const MAX_RECONNECT_ATTEMPTS = 10; // Max 10 attempts
-
-    reconnectAttempt.current++;
-
-    if (reconnectAttempt.current <= MAX_RECONNECT_ATTEMPTS) {
-      const delay = Math.min(MAX_RECONNECT_DELAY, INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttempt.current - 1));
-      setStatusText(`Connection lost. Reconnecting... (Attempt ${reconnectAttempt.current}/${MAX_RECONNECT_ATTEMPTS}) in ${delay / 1000}s`);
-      reconnectTimeout.current = window.setTimeout(() => {
-        const currentUrl = serverUrl;
-        connect(currentUrl);
-      }, delay);
-    } else {
-      setStatus('disconnected');
-      setStatusText('Disconnected. Click to reconnect.');
-      setConnectionStatus('disconnected');
-      socket.current = null;
-      reconnectAttempt.current = 0; // Reset attempts after giving up
-    };
-  }, [serverUrl, connect]);
-
   const connect = useCallback((serverUrlToConnect: string) => {
     if (socket.current) {
       socket.current.close();
@@ -216,6 +188,38 @@ export function App() {
 
     socket.current = newSocket;
   }, [handleMessage, handleReconnect]);
+
+  // Store connect function in ref for handleReconnect to use
+  connectRef.current = connect;
+
+  const handleReconnect = useCallback(() => {
+    // Don't reconnect if it was a manual disconnect
+    if (isManualDisconnect.current) {
+      isManualDisconnect.current = false;
+      return;
+    }
+    
+    const INITIAL_RECONNECT_DELAY = 1000; // 1 second
+    const MAX_RECONNECT_DELAY = 30000; // 30 seconds
+    const MAX_RECONNECT_ATTEMPTS = 10; // Max 10 attempts
+
+    reconnectAttempt.current++;
+
+    if (reconnectAttempt.current <= MAX_RECONNECT_ATTEMPTS) {
+      const delay = Math.min(MAX_RECONNECT_DELAY, INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttempt.current - 1));
+      setStatusText(`Connection lost. Reconnecting... (Attempt ${reconnectAttempt.current}/${MAX_RECONNECT_ATTEMPTS}) in ${delay / 1000}s`);
+      reconnectTimeout.current = window.setTimeout(() => {
+        const currentUrl = serverUrl;
+        connectRef.current?.(currentUrl);
+      }, delay);
+    } else {
+      setStatus('disconnected');
+      setStatusText('Disconnected. Click to reconnect.');
+      setConnectionStatus('disconnected');
+      socket.current = null;
+      reconnectAttempt.current = 0; // Reset attempts after giving up
+    }
+  }, [serverUrl]);
 
   const connectToCodespace = useCallback((codespaceName: string) => {
     if (socket.current?.readyState !== WebSocket.OPEN) {
