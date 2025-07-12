@@ -10,6 +10,7 @@ import protobuf from 'protobufjs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import type { TunnelRelayTunnelClient } from '@microsoft/dev-tunnels-connections';
+import { TraceLevel } from '@microsoft/dev-tunnels-ssh';
 import { sshKeyManager, type SSHKeyPair } from '../services/SSHKeyManager.js';
 import { logger } from '../utils/logger';   
 
@@ -101,12 +102,12 @@ interface InvokerImpl {
   localPort?: number;
   cancelPF?: () => void;
   keepAliveOverride: boolean;
-  heartbeatInterval?: NodeJS.Timeout;
+  heartbeatInterval?: ReturnType<typeof setTimeout>;
   authToken?: string;
   // Connection management for keep-alive
   isConnected: boolean;
   disconnectTime?: number;
-  gracePeriodTimeout?: NodeJS.Timeout;
+  gracePeriodTimeout?: ReturnType<typeof setTimeout>;
   isPaused: boolean;
   // SSH key management
   currentKeyPair?: SSHKeyPair;
@@ -141,52 +142,6 @@ export async function createInvoker(
     invoker.localPort = listener.port;
     
     logger.info(`Local gRPC listener created on port ${invoker.localPort}`);
-    
-    // Step 2: Research what APIs are available on the tunnel client
-    logger.debug('🔍 === TUNNEL CLIENT API RESEARCH ===');
-    logger.debug('Available tunnel client properties:');
-    logger.debug('- tunnelSession available:', { available: !!(tunnelClient as any).tunnelSession });
-    logger.debug('- session available:', { available: !!(tunnelClient as any).session });
-    logger.debug('- sshSession available:', { available: !!(tunnelClient as any).sshSession });
-    logger.debug('- endpoints available:', { available: !!(tunnelClient as any).endpoints });
-    logger.debug('- portForwardingService available:', { available: !!(tunnelClient as any).portForwardingService });
-    
-    // Try to inspect the tunnel session for port forwarding info
-    const tunnelSession = (tunnelClient as any).tunnelSession;
-    if (tunnelSession) {
-      logger.debug('🔍 TunnelSession properties:');
-      logger.debug('- getService method:', { type: typeof tunnelSession.getService });
-      logger.debug('- localForwardedPorts:', { available: !!(tunnelSession as any).localForwardedPorts });
-      logger.debug('- forwardedPorts:', { available: !!(tunnelSession as any).forwardedPorts });
-      logger.debug('- portForwardingService:', { available: !!(tunnelSession as any).portForwardingService });
-      
-      // Try to get the port forwarding service
-      try {
-        const pfs = tunnelSession.getService('PortForwardingService');
-        if (pfs) {
-          logger.info('✅ Found PortForwardingService');
-          logger.debug('- listeners available:', { available: !!(pfs as any).listeners });
-          logger.debug('- localForwardedPorts available:', { available: !!(pfs as any).localForwardedPorts });
-          
-          // Try to get actual port mappings
-          if ((pfs as any).listeners) {
-            const listeners = (pfs as any).listeners;
-            logger.debug('🎯 Active listeners:', { listeners: Array.from(listeners.keys()) });
-            
-            // Look for our RPC port
-            for (const [localPort, remoteInfo] of listeners) {
-              logger.debug(`📍 Local port ${localPort} -> remote info:`, { remoteInfo });
-              if (remoteInfo && remoteInfo.remotePort === CODESPACES_INTERNAL_PORT) {
-                logger.info(`🎯 FOUND RPC PORT MAPPING: ${localPort} -> ${CODESPACES_INTERNAL_PORT}`);
-                return localPort;
-              }
-            }
-          }
-        }
-      } catch (serviceError) {
-        logger.warn('❌ Failed to get PortForwardingService:', { serviceError });
-      }
-    }
     
     // Fallback to our detection method
     logger.info('🔄 Falling back to port detection method...');
@@ -248,7 +203,7 @@ function setupPortDetectionFromTraces(tunnelClient: TunnelRelayTunnelClient): { 
   
   // Override the trace function to capture port forwarding info
   const originalTrace = tunnelClient.trace;
-  tunnelClient.trace = (level: any, eventId: any, msg: any, err?: any) => {
+  tunnelClient.trace = (level: TraceLevel, eventId: number, msg: string, err?: Error) => {
     // Call original trace first
     if (originalTrace) {
       originalTrace.call(tunnelClient, level, eventId, msg, err);
@@ -761,7 +716,11 @@ async function cleanup(invoker: InvokerImpl): Promise<void> {
   
   if (invoker.localListener) {
     return new Promise((resolve) => {
-      invoker.localListener!.close(() => resolve());
+      if (invoker.localListener) {
+        invoker.localListener.close(() => resolve());
+      } else {
+        resolve();
+      }
     });
   }
 }
@@ -769,7 +728,7 @@ async function cleanup(invoker: InvokerImpl): Promise<void> {
 /**
  * Test basic gRPC connection
  */
-async function testGRPCConnection(client: grpc.Client): Promise<{ success: boolean; error?: string }> {
+function testGRPCConnection(client: grpc.Client): { success: boolean; error?: string } {
   try {
     // Try to get the client state
     const state = client.getChannel().getConnectivityState(false);
@@ -828,7 +787,7 @@ function createInvokerInterface(invoker: InvokerImpl): CodespaceRPCInvoker {
         
         // Test if we can make ANY gRPC call to the service
         // This will help us determine if the service is actually listening
-        const testResult = await testGRPCConnection(invoker.grpcConnection);
+        const testResult = testGRPCConnection(invoker.grpcConnection);
         logger.info(`🧪 gRPC connection test result:`, { testResult });
         
         if (!testResult.success) {
@@ -844,7 +803,7 @@ function createInvokerInterface(invoker: InvokerImpl): CodespaceRPCInvoker {
         
         // Generate ephemeral SSH key pair for this session
         logger.info(`🔑 Generating ephemeral SSH key pair for session: ${options.sessionId}`);
-        const keyPair = await sshKeyManager.generateSessionKeys(options.sessionId);
+        const keyPair = sshKeyManager.generateSessionKeys(options.sessionId);
         
         // Store the key pair for later use in SSH connection
         invoker.currentKeyPair = keyPair;

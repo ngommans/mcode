@@ -43,6 +43,7 @@ export interface ForwardedPort extends BasePort {
 }
 
 // Type-safe conversion utilities - eliminate manual mapping
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- Justified: shared utility functions for type conversions
 export class PortConverter {
   /**
    * Convert TunnelPort to ForwardedPort with type safety

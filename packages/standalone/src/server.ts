@@ -32,14 +32,9 @@ const wss = new WebSocketServer({ server: httpServer });
 
 // Enhanced WebSocket handler that supports GITHUB_TOKEN environment variable fallback
 class StandaloneWebSocketHandler extends CodespaceWebSocketHandler {
-  private originalHandleConnection: (ws: WebSocket) => void;
   
   constructor(options: ServerOptions = {}) {
     super(options);
-    
-    // Save a reference to the parent's handleConnection
-    const parent = new CodespaceWebSocketHandler(options);
-    this.originalHandleConnection = parent.handleConnection.bind(parent);
   }
   
   handleConnection = (ws: WebSocket): void => {
@@ -87,7 +82,7 @@ class StandaloneWebSocketHandler extends CodespaceWebSocketHandler {
     };
     
     // Call the parent's handleConnection implementation
-    this.originalHandleConnection(ws);
+    super.handleConnection(ws);
   };
 }
 

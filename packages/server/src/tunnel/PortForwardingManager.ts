@@ -9,6 +9,36 @@ import { TunnelAccessScopes } from '@microsoft/dev-tunnels-contracts';
 import type { TunnelProperties } from 'tcode-shared';
 import { logger } from '../utils/logger';
 
+// Interface for accessing internal TunnelRelayTunnelClient properties
+// Note: These are internal properties accessed via casting - use with caution
+interface InternalTunnelClient {
+  connectedTunnel?: {
+    ports?: Array<{
+      portNumber?: number;
+      portForwardingUris?: string[];
+      protocol?: string;
+    }>;
+  };
+  tunnelSession?: {
+    getService: (serviceName: string) => {
+      listeners?: Record<string, unknown>;
+      on?: (event: string, callback: (...args: unknown[]) => void) => void;
+    };
+  };
+  session?: {
+    listeners?: Record<string, unknown>;
+    forwardedPorts?: Iterable<unknown>;
+  };
+  on?: (event: string, callback: () => void) => void;
+}
+
+// Interface for port forwarding remote info
+interface RemotePortInfo {
+  remotePort?: number;
+  port?: number;
+  protocol?: string;
+}
+
 export interface PortMapping {
   localPort: number;
   remotePort: number;
@@ -71,7 +101,7 @@ class PortForwardingManager {
       await this.queryInitialPortState();
       
       // Step 2: Set up real-time port forwarding listeners
-      await this.setupPortForwardingListeners();
+      this.setupPortForwardingListeners();
       
       // Step 3: Set up tunnel change monitoring
       this.setupTunnelChangeMonitoring();
@@ -99,7 +129,7 @@ class PortForwardingManager {
 
     try {
       // Source 1: Check tunnel public arrays first (simplest)
-      const publicArrayPorts = await this.queryPublicTunnelArrays();
+      const publicArrayPorts = this.queryPublicTunnelArrays();
       if (publicArrayPorts.length > 0) {
         logger.info(`✅ Found ${publicArrayPorts.length} ports from tunnel public arrays`);
         detectedPorts.push(...publicArrayPorts);
@@ -113,7 +143,7 @@ class PortForwardingManager {
       }
 
       // Source 3: Check PortForwardingService listeners
-      const listenerPorts = await this.queryPortForwardingServiceListeners();
+      const listenerPorts = this.queryPortForwardingServiceListeners();
       if (listenerPorts.length > 0) {
         logger.info(`✅ Found ${listenerPorts.length} ports from PortForwardingService listeners`);
         detectedPorts.push(...listenerPorts);
@@ -133,14 +163,14 @@ class PortForwardingManager {
   /**
    * Check tunnel public arrays for port information (simplest approach)
    */
-  private async queryPublicTunnelArrays(): Promise<PortMapping[]> {
+  private queryPublicTunnelArrays(): PortMapping[] {
     if (!this.tunnelClient) return [];
     
     try {
       logger.info('🔍 Checking tunnel public arrays...');
       
       const detectedPorts: PortMapping[] = [];
-      const client = this.tunnelClient as any;
+      const client = this.tunnelClient as unknown as InternalTunnelClient;
       
       // Check connectedTunnel ports
       if (client.connectedTunnel?.ports) {
@@ -216,7 +246,7 @@ class PortForwardingManager {
           if (localPort) {
             detectedPorts.push({
               localPort,
-              remotePort: port.portNumber!,
+              remotePort: port.portNumber,
               protocol: port.protocol || 'unknown',
               isActive: true,
               source: 'tunnelQuery'
@@ -237,13 +267,13 @@ class PortForwardingManager {
   /**
    * Query PortForwardingService listeners (most direct approach)
    */
-  private async queryPortForwardingServiceListeners(): Promise<PortMapping[]> {
+  private queryPortForwardingServiceListeners(): PortMapping[] {
     if (!this.tunnelClient) return [];
     
     try {
       logger.info('🔍 Querying PortForwardingService listeners...');
       
-      const client = this.tunnelClient as any;
+      const client = this.tunnelClient as unknown as InternalTunnelClient;
       const tunnelSession = client.tunnelSession;
       
       if (!tunnelSession) {
@@ -268,18 +298,22 @@ class PortForwardingManager {
       const detectedPorts: PortMapping[] = [];
       const listeners = portForwardingService.listeners;
       
-      logger.info(`📋 Found ${listeners.size} active listeners`);
-      
-      for (const [localPort, remoteInfo] of listeners) {
-        logger.info(`📍 Listener: local ${localPort} -> remote ${remoteInfo.remotePort || remoteInfo.port}`);
+      if (listeners && typeof listeners === 'object') {
+        const entries = Object.entries(listeners);
+        logger.info(`📋 Found ${entries.length} active listeners`);
         
-        detectedPorts.push({
-          localPort: typeof localPort === 'number' ? localPort : parseInt(localPort, 10),
-          remotePort: remoteInfo.remotePort || remoteInfo.port,
-          protocol: remoteInfo.protocol || 'unknown',
-          isActive: true,
-          source: 'listeners'
-        });
+        for (const [localPort, remoteInfo] of entries) {
+          const remoteInfoTyped = remoteInfo as RemotePortInfo;
+          logger.info(`📍 Listener: local ${localPort} -> remote ${remoteInfoTyped.remotePort || remoteInfoTyped.port}`);
+          
+          detectedPorts.push({
+            localPort: typeof localPort === 'number' ? localPort : parseInt(localPort, 10),
+            remotePort: remoteInfoTyped.remotePort || remoteInfoTyped.port || parseInt(localPort, 10),
+            protocol: remoteInfoTyped.protocol || 'unknown',
+            isActive: true,
+            source: 'listeners'
+          });
+        }
       }
       
       return detectedPorts;
@@ -294,13 +328,13 @@ class PortForwardingManager {
   /**
    * Set up real-time port forwarding listeners for async updates
    */
-  private async setupPortForwardingListeners(): Promise<void> {
+  private setupPortForwardingListeners(): void {
     if (!this.tunnelClient) return;
     
     try {
       logger.info('🎧 Setting up real-time port forwarding listeners...');
       
-      const client = this.tunnelClient as any;
+      const client = this.tunnelClient as unknown as InternalTunnelClient;
       const tunnelSession = client.tunnelSession;
       
       if (tunnelSession) {
@@ -310,12 +344,14 @@ class PortForwardingManager {
           if (portForwardingService) {
             // Set up event listeners for port changes
             if (typeof portForwardingService.on === 'function') {
-              portForwardingService.on('portAdded', (localPort: number, remoteInfo: any) => {
+              portForwardingService.on('portAdded', (...args: unknown[]) => {
+                const [localPort, remoteInfo] = args as [number, RemotePortInfo];
                 logger.info(`🎯 Port added: ${localPort} -> ${remoteInfo.remotePort || remoteInfo.port}`);
                 this.handlePortAdded(localPort, remoteInfo);
               });
               
-              portForwardingService.on('portRemoved', (localPort: number) => {
+              portForwardingService.on('portRemoved', (...args: unknown[]) => {
+                const [localPort] = args as [number];
                 logger.info(`🗑️  Port removed: ${localPort}`);
                 this.handlePortRemoved(localPort);
               });
@@ -344,9 +380,9 @@ class PortForwardingManager {
    */
   private setupPollingFallback(): void {
     // Poll every 30 seconds to refresh port state
-    setInterval(async () => {
+    setInterval(() => {
       try {
-        await this.refreshPortState();
+        void this.refreshPortState();
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logger.error('⚠️  Port state refresh failed:', new Error(errorMessage));
@@ -360,13 +396,13 @@ class PortForwardingManager {
   private setupTunnelChangeMonitoring(): void {
     if (!this.tunnelClient) return;
     
-    const client = this.tunnelClient as any;
+    const client = this.tunnelClient as unknown as InternalTunnelClient;
     
     // Monitor tunnel connection changes
     if (typeof client.on === 'function') {
-      client.on('tunnelChanged', async () => {
+      client.on('tunnelChanged', () => {
         logger.info('🔄 Tunnel changed - refreshing port state');
-        await this.refreshPortState();
+        void this.refreshPortState();
       });
     }
   }
@@ -376,7 +412,7 @@ class PortForwardingManager {
    */
   async waitForForwardedPortWithMapping(
     remotePort: number, 
-    timeoutMs: number = 5000
+    timeoutMs = 5000
   ): Promise<PortMapping | null> {
     if (!this.tunnelClient) return null;
     
@@ -395,7 +431,7 @@ class PortForwardingManager {
       
       // Check if result is a number (local port) or just success boolean
       if (typeof result === 'number') {
-        logger.info(`✅ WaitForForwardedPort returned local port: ${result}`);
+        logger.info(`✅ WaitForForwardedPort returned local port: ${String(result)}`);
         return {
           localPort: result,
           remotePort,
@@ -478,10 +514,10 @@ class PortForwardingManager {
   /**
    * Handle port added event
    */
-  private handlePortAdded(localPort: number, remoteInfo: any): void {
+  private handlePortAdded(localPort: number, remoteInfo: RemotePortInfo): void {
     const mapping: PortMapping = {
       localPort,
-      remotePort: remoteInfo.remotePort || remoteInfo.port,
+      remotePort: remoteInfo.remotePort || remoteInfo.port || localPort,
       protocol: remoteInfo.protocol || 'unknown',
       isActive: true,
       source: 'listeners'

@@ -12,6 +12,7 @@ interface SSHKeyGenResult {
 
 // Import ssh2's keygen module using require
 const { generateKeyPairSync } = require('ssh2/lib/keygen.js') as {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- External library type definition
   generateKeyPairSync: (keyType: string, opts?: any) => SSHKeyGenResult;
 };
 
@@ -38,7 +39,7 @@ export class SSHKeyManager {
    * Generate a new SSH key pair for the given session
    * Keys are stored only in memory and scoped to the session
    */
-  async generateSessionKeys(sessionId: string): Promise<SSHKeyPair> {
+  generateSessionKeys(sessionId: string): SSHKeyPair {
     this.logger.log(`🔑 Generating SSH key pair for session: ${sessionId}`);
     
     try {

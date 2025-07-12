@@ -30,6 +30,7 @@ export function App() {
   const socket = useRef<WebSocket | null>(null);
   const reconnectTimeout = useRef<number | null>(null);
   const isManualDisconnect = useRef<boolean>(false);
+  const reconnectAttempt = useRef<number>(0); // New: Track reconnection attempts
 
   const requestCodespaces = useCallback(() => {
     if (socket.current?.readyState !== WebSocket.OPEN) {
@@ -141,29 +142,27 @@ export function App() {
       return;
     }
     
-    let attempts = 0;
-    const maxAttempts = 5;
+    const INITIAL_RECONNECT_DELAY = 1000; // 1 second
+    const MAX_RECONNECT_DELAY = 30000; // 30 seconds
+    const MAX_RECONNECT_ATTEMPTS = 10; // Max 10 attempts
 
-    const attemptReconnect = () => {
-      if (isManualDisconnect.current) return;
+    reconnectAttempt.current++;
 
-      attempts++;
-      if (attempts <= maxAttempts) {
-        setStatusText(`Connection lost. Reconnecting... (Attempt ${attempts}/${maxAttempts})`);
-        reconnectTimeout.current = window.setTimeout(() => {
-          const currentUrl = serverUrl;
-          connect(currentUrl);
-        }, 2000);
-      } else {
-        setStatus('disconnected');
-        setStatusText('Disconnected. Click to reconnect.');
-        setConnectionStatus('disconnected');
-        socket.current = null;
-      }
+    if (reconnectAttempt.current <= MAX_RECONNECT_ATTEMPTS) {
+      const delay = Math.min(MAX_RECONNECT_DELAY, INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttempt.current - 1));
+      setStatusText(`Connection lost. Reconnecting... (Attempt ${reconnectAttempt.current}/${MAX_RECONNECT_ATTEMPTS}) in ${delay / 1000}s`);
+      reconnectTimeout.current = window.setTimeout(() => {
+        const currentUrl = serverUrl;
+        connect(currentUrl);
+      }, delay);
+    } else {
+      setStatus('disconnected');
+      setStatusText('Disconnected. Click to reconnect.');
+      setConnectionStatus('disconnected');
+      socket.current = null;
+      reconnectAttempt.current = 0; // Reset attempts after giving up
     };
-
-    attemptReconnect();
-  }, [serverUrl]); // Removed connect from dependencies
+  }, [serverUrl, connect]);
 
   const connect = useCallback((serverUrlToConnect: string) => {
     if (socket.current) {
@@ -187,6 +186,7 @@ export function App() {
         clearTimeout(reconnectTimeout.current);
         reconnectTimeout.current = null;
       }
+      reconnectAttempt.current = 0; // Reset attempts on successful connection
       // Auto-update status after 2 seconds
       setTimeout(() => {
         setStatusText('Authenticate with GitHub');
@@ -317,7 +317,7 @@ export function App() {
       });
       return () => disposable.dispose();
     }
-  }, [socket.current]);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -341,9 +341,9 @@ export function App() {
     disconnect();
   }, [disconnect]);
 
-  const handleModalConnect = useCallback((serverUrl: string, githubToken: string) => {
+  const handleModalConnect = useCallback((serverUrl_hmc: string, githubToken: string) => {
     setStatusText('Connecting to server...');
-    connect(serverUrl);
+    connect(serverUrl_hmc);
     // DO NOT close modal here.
     if (githubToken) {
       // Wait for connection to establish before authenticating

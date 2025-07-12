@@ -13,7 +13,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "copy:static": "mkdir -p ./static && npm run build --prefix ../../apps/web-client && cp -r ../../apps/web-client/dist/* ./static/",
+    "copy:static": "mkdir -p ./static && cp -r ../../apps/web-client/dist/* ./static/",
     "prebuild": "npm run copy:static",
     "start": "dotenv -e ../../.env -- node dist/server.js",
     "dev": "dotenv -e ../../.env -- tsx watch src/server.ts"

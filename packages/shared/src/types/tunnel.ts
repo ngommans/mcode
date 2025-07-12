@@ -33,15 +33,37 @@ export interface EndpointInfo {
 // Port types moved to ./port.ts for unified hierarchy
 // Re-export for backwards compatibility
 export type { TunnelPort, PortInformation, PortInfo } from './port.js';
-import type { PortInfo } from './port.js';
+import type { PortInformation, PortInfo } from './port.js';
 import type { TunnelClient, TunnelManagementClient, RpcConnection } from './external.js';
+
+export interface TunnelConnection {
+  /**
+   * Get current port information from the connected tunnel
+   */
+  getPortInformation(): Promise<PortInformation>;
+
+  /**
+   * Refresh port information by fetching latest tunnel state
+   */
+  refreshPortInformation(): Promise<PortInformation>;
+
+  /**
+   * Close the tunnel connection and cleanup resources
+   */
+  close(): Promise<void>;
+
+  /**
+   * Check if tunnel connection is active
+   */
+  isConnected(): boolean;
+}
 
 export interface TunnelConnectionResult {
   success: boolean;
   localPort?: number;
   sshPort?: number;
   client?: TunnelClient; // TunnelRelayTunnelClient
-  tunnelClient?: TunnelClient; // Backwards compatibility
+  tunnelConnection?: TunnelConnection;
   portInfo: PortInfo;
   endpointInfo?: EndpointInfo | null;
   tunnelManagementClient?: TunnelManagementClient;

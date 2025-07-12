@@ -8,9 +8,9 @@ import {
   MESSAGE_TYPES, 
   isWebSocketMessage,
   PortConverter,
-  type ServerMessage, 
   type WebSocketMessage,
-  type TcodeWebSocket
+  type TcodeWebSocket,
+  type ServerMessage
 } from 'tcode-shared';
 import { GitHubCodespaceConnector } from '../connectors/GitHubCodespaceConnector.js';
 import { logger } from '../utils/logger.js';
@@ -22,11 +22,6 @@ export interface ServerOptions {
 }
 
 export class CodespaceWebSocketHandler {
-  private options: ServerOptions;
-
-  constructor(options: ServerOptions = {}) {
-    this.options = options;
-  }
 
   /**
    * Handle new WebSocket connection
@@ -39,32 +34,38 @@ export class CodespaceWebSocketHandler {
     ws.connector = undefined;
     ws.terminalConnection = undefined;
     ws.codespaceName = undefined;
-    ws.tunnelClient = undefined;
 
-    ws.on('message', async (data: WebSocket.RawData) => {
-      try {
-        const message = JSON.parse(data.toString()) as WebSocketMessage;
-        await this.handleMessage(ws, message);
-      } catch (error) {
-        logger.error('Error handling message', error as Error);
-        this.sendError(ws, (error as Error).message);
-      }
+    ws.on('message', (data: WebSocket.RawData) => {
+      void (async () => {
+        try {
+          const messageText = Buffer.isBuffer(data) ? data.toString('utf8') : String(data);
+          const message = JSON.parse(messageText) as WebSocketMessage;
+          await this.handleMessage(ws, message);
+        } catch (error) {
+          logger.error('Error handling message', error instanceof Error ? error : new Error(String(error)));
+          this.sendError(ws, error instanceof Error ? error.message : String(error));
+        }
+      })();
     });
 
-    ws.on('close', async () => {
-      logger.info('Client disconnected');
-      
-      // Mark RPC connection as disconnected to start grace period
-      if (ws.rpcConnection) {
-        ws.rpcConnection.markAsDisconnected();
-      }
-      
-      await this.cleanup(ws);
+    ws.on('close', () => {
+      void (async () => {
+        logger.info('Client disconnected');
+        
+        // Mark RPC connection as disconnected to start grace period
+        if (ws.rpcConnection) {
+          ws.rpcConnection.markAsDisconnected();
+        }
+        
+        await this.cleanup(ws);
+      })();
     });
 
-    ws.on('error', async (error: Error) => {
-      logger.error('WebSocket connection error', error);
-      await this.cleanup(ws);
+    ws.on('error', (error: Error) => {
+      void (async () => {
+        logger.error('WebSocket connection error', error);
+        await this.cleanup(ws);
+      })();
     });
   };
 
@@ -75,46 +76,52 @@ export class CodespaceWebSocketHandler {
 
     logger.debug('Server received message', { type: message.type });
 
-    switch (message.type) {
-      case MESSAGE_TYPES.AUTHENTICATE:
-        await this.handleAuthenticate(ws, message as any);
-        break;
-
-      case MESSAGE_TYPES.LIST_CODESPACES:
-        await this.handleListCodespaces(ws);
-        break;
-
-      case MESSAGE_TYPES.CONNECT_CODESPACE:
-        await this.handleConnectCodespace(ws, message as any);
-        break;
-
-      case MESSAGE_TYPES.DISCONNECT_CODESPACE:
-        await this.handleDisconnectCodespace(ws);
-        break;
-
-      case MESSAGE_TYPES.INPUT:
-        await this.handleInput(ws, message as any);
-        break;
-
-      case MESSAGE_TYPES.RESIZE:
-        await this.handleResize(ws, message as any);
-        break;
-
-      case MESSAGE_TYPES.GET_PORT_INFO:
-        await this.handleGetPortInfo(ws);
-        break;
-
-      case MESSAGE_TYPES.REFRESH_PORTS:
-        await this.handleRefreshPorts(ws);
-        break;
-
-      default:
-        logger.warn('Unknown message type', { type: message.type });
+    try {
+      switch (message.type) {
+        case MESSAGE_TYPES.AUTHENTICATE:
+          this.handleAuthenticate(ws, message as { token: string });
+          break;
+          
+        case MESSAGE_TYPES.LIST_CODESPACES:
+          await this.handleListCodespaces(ws);
+          break;
+          
+        case MESSAGE_TYPES.CONNECT_CODESPACE:
+          await this.handleConnectCodespace(ws, message as { codespace_name: string });
+          break;
+          
+        case MESSAGE_TYPES.DISCONNECT_CODESPACE:
+          await this.handleDisconnectCodespace(ws);
+          break;
+          
+        case MESSAGE_TYPES.INPUT:
+          this.handleInput(ws, message as { data: string });
+          break;
+          
+        case MESSAGE_TYPES.RESIZE:
+          this.handleResize(ws, message as { cols: number; rows: number });
+          break;
+          
+        case MESSAGE_TYPES.GET_PORT_INFO:
+          await this.handleGetPortInfo(ws);
+          break;
+          
+        case MESSAGE_TYPES.REFRESH_PORTS:
+          await this.handleRefreshPorts(ws);
+          break;
+          
+        default:
+          logger.warn('Unknown message type', { type: message.type });
+          break;
+      }
+    } catch (error) {
+      logger.error('Error handling message', { error, messageType: message.type });
+      throw error;
     }
   }
 
-  private async handleAuthenticate(ws: TcodeWebSocket, message: { token: string }): Promise<void> {
-    ws.connector = new GitHubCodespaceConnector(message.token, ws, this, { debugMode: this.options.debugMode });
+  private handleAuthenticate(ws: TcodeWebSocket, message: { token: string }): void {
+    ws.connector = new GitHubCodespaceConnector(message.token, ws, this);
     this.sendMessage(ws, {
       type: MESSAGE_TYPES.AUTHENTICATED,
       success: true
@@ -162,10 +169,10 @@ export class CodespaceWebSocketHandler {
       ws.terminalConnection.close();
       ws.terminalConnection = undefined;
       
-      if (ws.tunnelClient) {
-        logger.info('Disposing of tunnel client on disconnect');
-        await ws.tunnelClient.dispose();
-        ws.tunnelClient = undefined;
+      if (ws.tunnelConnection) {
+        logger.info('Disposing of tunnel connection on disconnect');
+        await ws.tunnelConnection.close();
+        ws.tunnelConnection = undefined;
       }
       
       if (ws.codespaceName && ws.connector) {
@@ -176,13 +183,13 @@ export class CodespaceWebSocketHandler {
     }
   }
 
-  private async handleInput(ws: TcodeWebSocket, message: { data: string }): Promise<void> {
+  private handleInput(ws: TcodeWebSocket, message: { data: string }): void {
     if (ws.terminalConnection) {
       ws.terminalConnection.write(message.data);
     }
   }
 
-  private async handleResize(ws: TcodeWebSocket, message: { cols: number; rows: number }): Promise<void> {
+  private handleResize(ws: TcodeWebSocket, message: { cols: number; rows: number }): void {
     if (ws.terminalConnection) {
       ws.terminalConnection.resize(message.cols, message.rows);
     }
@@ -230,22 +237,20 @@ export class CodespaceWebSocketHandler {
         // Don't set to undefined yet - keep reference for potential reconnection
       }
       
-      // Dispose tunnel client last
-      if (ws.tunnelClient) {
-        logger.info('Disposing of tunnel client on WebSocket close');
+      // Dispose tunnel connection wrapper or client last
+      if (ws.tunnelConnection) {
+        logger.info('Disposing of tunnel connection on WebSocket close');
         try {
-          await ws.tunnelClient.dispose();
+          await ws.tunnelConnection.close();
         } catch (error) {
-          logger.error('Error disposing tunnel client', error as Error);
+          logger.error('Error disposing tunnel connection', error as Error);
         }
-        ws.tunnelClient = undefined;
+        ws.tunnelConnection = undefined;
       }
       
       // Clear all tunnel-related properties
       ws.portInfo = undefined;
       ws.endpointInfo = undefined;
-      ws.tunnelManagementClient = undefined;
-      ws.tunnelProperties = undefined;
       
     } catch (error) {
       logger.error('Error during WebSocket cleanup', error as Error);

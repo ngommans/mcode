@@ -98,7 +98,7 @@ export type ExtendedTunnelClient = TunnelRelayTunnelClient & TunnelClientExtende
  */
 export type TraceLevel = number | string;
 export type TraceEventId = number | string;
-export type TraceMessage = string | unknown;
+export type TraceMessage = string;
 
 export interface TraceFunction {
   (level: TraceLevel, eventId: TraceEventId, message: TraceMessage, error?: Error): void;
@@ -121,7 +121,7 @@ export class TunnelClientWrapper {
   /**
    * Safely get the port forwarding service
    */
-  async getPortForwardingService(): Promise<TunnelPortForwardingService | null> {
+  getPortForwardingService(): TunnelPortForwardingService | null {
     try {
       const sshSession = this.extendedClient.sshSession;
       return sshSession?.getService('PortForwardingService') ?? null;

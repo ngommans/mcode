@@ -16,14 +16,11 @@ import {
   type TcodeWebSocket,
   type CodespaceConnector
 } from 'tcode-shared';
-import { forwardSshPortOverTunnel, getPortInformation } from '../tunnel/TunnelModule.js';
+//import { forwardSshPortOverTunnel } from '../tunnel/TunnelModule.js';
+import { connectToTunnel } from '../tunnel/TunnelModuleClean.js';
 import { Ssh2Connector } from './Ssh2Connector.js';
 import { logger } from '../utils/logger.js';
 import type { CodespaceWebSocketHandler } from '../handlers/CodespaceWebSocketHandler.js';
-
-interface ConnectorOptions {
-  debugMode?: boolean;
-}
 
 interface RetryableError extends Error {
   retryable?: boolean;
@@ -34,16 +31,13 @@ export class GitHubCodespaceConnector implements CodespaceConnector {
   private accessToken: string;
   private ws: WebSocket;
   private handler: CodespaceWebSocketHandler;
-  private options: ConnectorOptions;
 
-  constructor(accessToken: string, ws: WebSocket, handler: CodespaceWebSocketHandler, options: ConnectorOptions = {}) {
+  constructor(accessToken: string, ws: WebSocket, handler: CodespaceWebSocketHandler) {
     this.accessToken = accessToken;
     this.ws = ws;
     this.handler = handler;
-    this.options = options;
     logger.debug('GitHubCodespaceConnector initialized', {
       tokenSuffix: accessToken ? '*****' + accessToken.substring(accessToken.length - 4) : 'None',
-      debugMode: options.debugMode
     });
   }
 
@@ -177,40 +171,41 @@ export class GitHubCodespaceConnector implements CodespaceConnector {
     try {
       logger.info('Intercepting connection request for codespace', { codespaceName });
 
-      // If there's an existing tunnel client, dispose of it properly
-      if (ws.tunnelClient || ws.rpcConnection) {
+      // If there's an existing tunnel connection, dispose of it properly
+      if (ws.tunnelConnection || ws.rpcConnection) {
         logger.info('Disposing of existing tunnel and RPC connections');
         try {
           // Close RPC connection first (stops heartbeat)
           if (ws.rpcConnection) {
             await ws.rpcConnection.close();
           }
-          // Then dispose tunnel client
-          if (ws.tunnelClient) {
-            await ws.tunnelClient.dispose();
+          // Close tunnel connection wrapper
+          if (ws.tunnelConnection) {
+            await ws.tunnelConnection.close();
           }
         } catch (disposeError) {
           logger.error('Error disposing existing connections', disposeError as Error);
         }
-        ws.tunnelClient = undefined;
+        ws.tunnelConnection = undefined;
         ws.rpcConnection = undefined;
         ws.portInfo = undefined;
         ws.endpointInfo = undefined;
-        ws.tunnelManagementClient = undefined;
-        ws.tunnelProperties = undefined;
       }
 
       const tunnelProperties = await this.getTunnelProperties(codespaceName);
-      const result: TunnelConnectionResult = await forwardSshPortOverTunnel(tunnelProperties, { 
-        debugMode: this.options.debugMode 
-      });
+      // const result: TunnelConnectionResult = await forwardSshPortOverTunnel(tunnelProperties, { 
+      //   debugMode: this.options.debugMode 
+      // });
+
+      const result: TunnelConnectionResult = await connectToTunnel(
+        { name: 'minimal-terminal-client', version: '1.0.0' }, // userAgent
+        tunnelProperties
+      );
       
       // Store tunnel information on the WebSocket session
-      ws.tunnelClient = result.tunnelClient;
+      ws.tunnelConnection = result.tunnelConnection; // New wrapper for type-safe access
       ws.portInfo = result.portInfo;
       ws.endpointInfo = result.endpointInfo;
-      ws.tunnelManagementClient = result.tunnelManagementClient;
-      ws.tunnelProperties = tunnelProperties;
       ws.rpcConnection = result.rpcConnection; // Store RPC connection for cleanup
 
       logger.info('Connecting to local port', { localPort: result.localPort });
@@ -288,13 +283,10 @@ export class GitHubCodespaceConnector implements CodespaceConnector {
   }
 
   async refreshPortInformation(ws: TcodeWebSocket): Promise<PortInformation> {
-    if (ws.tunnelManagementClient && ws.tunnelProperties && ws.tunnelClient) {
+    if (ws.tunnelConnection) {
       try {
-        const updatedPortInfo = await getPortInformation(
-          ws.tunnelManagementClient as any,
-          (ws.tunnelClient as any).connectedTunnel,
-          ws.tunnelProperties
-        );
+        // Use the tunnel connection wrapper to get port information
+        const updatedPortInfo = await ws.tunnelConnection.refreshPortInformation();
         ws.portInfo = updatedPortInfo;
         this.sendPortUpdate(ws, updatedPortInfo);
         return updatedPortInfo;

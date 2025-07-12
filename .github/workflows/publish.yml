@@ -26,8 +26,8 @@ jobs:
     - name: Build packages
       run: |
         npm run build --workspace=packages/shared
-        npm run build --workspace=packages/tcode-server
-        npm run build --workspace=packages/npx-server
+        npm run build --workspace=packages/server
+        npm run build --workspace=packages/standalone
         
     - name: Publish tcode-shared
       run: |
@@ -38,14 +38,14 @@ jobs:
         
     - name: Publish tcode-server
       run: |
-        cd packages/tcode-server
+        cd packages/server
         npm publish
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         
     - name: Publish tcode
       run: |
-        cd packages/npx-server
+        cd packages/standalone
         npm publish
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

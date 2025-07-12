@@ -1,8 +1,6 @@
 name: Version and Release
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
     inputs:
       version_type:
@@ -39,10 +37,10 @@ jobs:
         cd packages/shared
         npm version ${{ github.event.inputs.version_type || 'patch' }} --no-git-tag-version
         
-        cd ../tcode-server
+        cd ../server
         npm version ${{ github.event.inputs.version_type || 'patch' }} --no-git-tag-version
         
-        cd ../npx-server
+        cd ../standalone
         npm version ${{ github.event.inputs.version_type || 'patch' }} --no-git-tag-version
         
     - name: Commit and tag
@@ -51,5 +49,5 @@ jobs:
         git config --local user.name "GitHub Action"
         git add packages/*/package.json
         git commit -m "chore: bump version"
-        git tag "v$(node -p "require('./packages/tcode-server/package.json').version")"
+        git tag "v$(node -p "require('./packages/standalone/package.json').version")"
         git push origin main --tags

@@ -376,10 +376,22 @@ export class MinimalTerminalClient {
 
   private showConnectionModal(): void {
     this._getDomElement('connectionModal').classList.remove('hidden');
+    
+    // Reset intentional disconnect flag when showing modal to allow new connections
+    this.isIntentionalDisconnect = false;
   }
 
   private hideConnectionModal(): void {
     this._getDomElement('connectionModal').classList.add('hidden');
+    
+    // Stop any active reconnection attempts when modal is closed
+    if (this.reconnectTimeout) {
+      window.clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+    
+    // Mark as intentional disconnect to prevent further reconnection attempts
+    this.isIntentionalDisconnect = true;
   }
 
   private showPortDialog(): void {
@@ -502,7 +514,7 @@ export class MinimalTerminalClient {
     
     // Clear any pending reconnect timeout
     if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
+      window.clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
     
@@ -560,18 +572,31 @@ export class MinimalTerminalClient {
         
         this.resetConnectionUI();
         
+        // Only attempt reconnection if not intentional and under max attempts
         if (!this.isIntentionalDisconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
           this.reconnectAttempts++;
           this.addStatusMessage(`Reconnecting... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-          this.reconnectTimeout = setTimeout(() => this.connect(url, this.githubToken || ''), 2000) as any;
+          this.reconnectTimeout = window.setTimeout(() => {
+            // Double-check we're still under max attempts when timeout fires
+            if (this.reconnectAttempts <= this.maxReconnectAttempts && !this.isIntentionalDisconnect) {
+              this.connect(url, this.githubToken || '');
+            }
+          }, 2000);
         } else if (!this.isIntentionalDisconnect) {
           // Max reconnect attempts reached
           this.addStatusMessage(`Connection failed after ${this.maxReconnectAttempts} attempts`);
           this.updateInfoBox(`Failed to reconnect after ${this.maxReconnectAttempts} attempts. Please check the server and try again.`, true);
+          // Clear any pending reconnect timeout
+          if (this.reconnectTimeout) {
+            window.clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
+          }
+          // Mark as intentional disconnect to prevent any further reconnection attempts
+          this.isIntentionalDisconnect = true;
         }
         
-        // Only reset intentional disconnect flag if it was intentional
-        if (this.isIntentionalDisconnect) {
+        // Only reset intentional disconnect flag if it was originally intentional (not due to max attempts)
+        if (this.isIntentionalDisconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
           this.isIntentionalDisconnect = false;
         }
       };
@@ -860,7 +885,7 @@ export class MinimalTerminalClient {
     
     // Clear any pending reconnect timeout
     if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
+      window.clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
     

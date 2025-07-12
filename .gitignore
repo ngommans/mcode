@@ -10,6 +10,7 @@ packages/**/node_modules
 # Tests
 playwright-report
 test-results
+coverage
 
 # Distibutables
 apps/**/dist

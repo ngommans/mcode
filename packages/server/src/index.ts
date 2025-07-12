@@ -40,7 +40,7 @@ const port = process.env.PORT ? parseInt(process.env.PORT, 10) : DEFAULT_PORT;
 // Parse command line arguments for debug mode
 const isDebugMode = process.argv.includes('--debug') || process.env.DEBUG_TRACE === 'true';
 
-async function main(): Promise<void> {
+function main(): void {
   try {
     logger.info('Starting Codespace Terminal Server...');
     
@@ -50,7 +50,7 @@ async function main(): Promise<void> {
       logger.info('Debug mode disabled - use --debug flag to enable trace logging');
     }
     
-    const server = new CodespaceTerminalServer(port, { debugMode: isDebugMode });
+    const server = new CodespaceTerminalServer(port);
     
     // Graceful shutdown
     process.on('SIGINT', () => {
@@ -73,8 +73,10 @@ async function main(): Promise<void> {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch((error) => {
-    logger.error('Unhandled error in main:', error);
+  try {
+    main();
+  } catch (error) {
+    logger.error('Unhandled error in main:', error instanceof Error ? error : new Error(String(error)));
     process.exit(1);
-  });
+  }
 }

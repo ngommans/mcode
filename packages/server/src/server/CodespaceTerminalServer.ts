@@ -3,7 +3,7 @@
  */
 
 import { WebSocketServer } from 'ws';
-import { CodespaceWebSocketHandler, type ServerOptions } from '../handlers/CodespaceWebSocketHandler.js';
+import { CodespaceWebSocketHandler } from '../handlers/CodespaceWebSocketHandler.js';
 import { logger } from '../utils/logger.js';
 
 export class CodespaceTerminalServer {
@@ -11,9 +11,9 @@ export class CodespaceTerminalServer {
   private port: number;
   private wsHandler: CodespaceWebSocketHandler;
 
-  constructor(port: number, options: ServerOptions = {}) {
+  constructor(port: number) {
     this.port = port;
-    this.wsHandler = new CodespaceWebSocketHandler(options);
+    this.wsHandler = new CodespaceWebSocketHandler();
     this.wss = new WebSocketServer({ port: this.port });
     this.init();
   }

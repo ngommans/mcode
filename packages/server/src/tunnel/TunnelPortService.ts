@@ -15,7 +15,7 @@ export interface PortDetectionResult {
   success: boolean;
   localPort?: number;
   error?: string;
-  source: 'api' | 'fallback' | 'trace' | 'none';
+  source: 'api' | 'direct' | 'fallback' | 'trace' | 'none';
   mapping?: PortMapping;
 }
 
@@ -188,7 +188,22 @@ export class TunnelPortService {
         };
       }
 
-      // Strategy 2: Try common SSH ports with enhanced wait
+      // Strategy 2: Check for direct port mappings (common case where remote port = local port)
+      const commonSshPorts = [2222, 22];
+      for (const port of commonSshPorts) {
+        const directMapping = this.getPortMapping(port);
+        if (directMapping && directMapping.isActive && directMapping.localPort === directMapping.remotePort) {
+          logger.info(`✅ Direct SSH mapping detected: ${directMapping.localPort} -> ${directMapping.remotePort}`);
+          return {
+            success: true,
+            localPort: directMapping.localPort,
+            source: 'direct',
+            mapping: directMapping
+          };
+        }
+      }
+
+      // Strategy 3: Try common SSH ports with enhanced wait
       const sshPorts = [2222, 22]; // Try 2222 first as it's more common for codespaces
       
       for (const remotePort of sshPorts) {
@@ -209,7 +224,7 @@ export class TunnelPortService {
         }
       }
 
-      // Strategy 3: Fallback to port scanning
+      // Strategy 4: Fallback to port scanning
       if (this.options.fallbackToPortScanning) {
         logger.info('🔍 Falling back to port scanning for SSH...');
         const scannedPort = await this.scanForSshPort();
@@ -223,7 +238,7 @@ export class TunnelPortService {
         }
       }
 
-      // Strategy 4: Trace parsing fallback (if enabled)
+      // Strategy 5: Trace parsing fallback (if enabled)
       if (this.options.enableTraceParsingFallback && this.traceListener) {
         logger.warn('⚠️  Falling back to trace parsing for SSH detection...');
         const tracedPort = this.extractSshPortFromTraces();

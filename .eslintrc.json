@@ -3,46 +3,95 @@
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
     "ecmaVersion": 2022,
-    "sourceType": "module"
+    "sourceType": "module",
+    "project": ["./tsconfig.json", "./packages/*/tsconfig.json", "./apps/*/tsconfig.json"]
   },
-  "plugins": ["@typescript-eslint"],
+  "plugins": ["@typescript-eslint", "react-hooks"],
   "extends": [
     "eslint:recommended",
     "plugin:@typescript-eslint/recommended",
+    "plugin:@typescript-eslint/recommended-requiring-type-checking",
+    "plugin:@typescript-eslint/strict",
     "prettier"
   ],
   "rules": {
-    // Type Safety - Stricter than before but not overwhelming
-    "@typescript-eslint/no-explicit-any": "warn",
+    // Type Safety - Strict mode: no any types allowed
+    "@typescript-eslint/no-explicit-any": "error",
     "@typescript-eslint/no-unused-vars": ["error", { 
       "argsIgnorePattern": "^_",
       "varsIgnorePattern": "^_"
     }],
     
-    // Code Quality - Now errors instead of warnings
+    // Unsafe operations - warnings to allow external API interactions
+    "@typescript-eslint/no-unsafe-assignment": "warn",
+    "@typescript-eslint/no-unsafe-member-access": "warn",
+    "@typescript-eslint/no-unsafe-argument": "warn",
+    "@typescript-eslint/no-unsafe-call": "warn",
+    "@typescript-eslint/no-unsafe-return": "warn",
+    
+    // Additional TypeScript strict rules
+    "@typescript-eslint/no-unused-expressions": "error",
+    "@typescript-eslint/prefer-as-const": "error",
+    "@typescript-eslint/no-inferrable-types": "error",
+    "@typescript-eslint/no-unnecessary-type-assertion": "error",
+    
+    // Code Quality - All errors for strict mode
     "prefer-const": "error",
     "no-var": "error",
     "no-case-declarations": "error",
     
-    // Console statements - keep as warning since some are intentional
-    "no-console": ["warn", { 
+    // Console statements - stricter in production code
+    "no-console": ["error", { 
       "allow": ["warn", "error"] 
     }],
     
     // Import/Export best practices
     "no-duplicate-imports": "error",
     
-    // General code quality improvements
+    // General code quality improvements - all errors
     "eqeqeq": ["error", "always"],
     "no-eval": "error",
     "no-implied-eval": "error",
-    "no-unused-expressions": "warn",
-    "no-unreachable": "error"
+    "no-unused-expressions": "error",
+    "no-unreachable": "error",
+    
+    // Additional strict rules
+    "no-shadow": "error",
+    "no-undef": "error",
+    "no-redeclare": "error"
   },
   "env": {
     "node": true,
     "browser": true,
     "es2022": true
   },
-  "ignorePatterns": ["dist/", "node_modules/", "*.d.ts"]
+  "ignorePatterns": ["dist/", "node_modules/", "*.d.ts"],
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.spec.ts", "**/test/**/*.ts", "**/__tests__/**/*.ts"],
+      "rules": {
+        // Allow console in test files
+        "no-console": "off",
+        // Allow any in test mocks and fixtures
+        "@typescript-eslint/no-explicit-any": "warn",
+        "@typescript-eslint/no-unsafe-assignment": "warn",
+        "@typescript-eslint/no-unsafe-member-access": "warn",
+        "@typescript-eslint/no-unsafe-argument": "warn"
+      }
+    },
+    {
+      "files": ["apps/web-client/**/*.tsx", "apps/web-client/**/*.ts"],
+      "extends": ["plugin:react-hooks/recommended"],
+      "rules": {
+        // React/Preact specific rules
+        "react-hooks/exhaustive-deps": "error",
+        "react-hooks/rules-of-hooks": "error",
+        // Allow console.log in client-side code for debugging
+        "no-console": ["warn", { "allow": ["warn", "error", "log"] }]
+      },
+      "env": {
+        "browser": true
+      }
+    }
+  ]
 }

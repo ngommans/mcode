@@ -5,9 +5,11 @@
 
 import { connectToTunnel } from '../tunnel/TunnelModuleClean.js';
 import type { TunnelProperties, TunnelConnectionResult } from 'tcode-shared';
+import { TraceLevel } from '@microsoft/dev-tunnels-ssh';
+import { TunnelRelayTunnelClient } from '@microsoft/dev-tunnels-connections';
 import * as net from 'net';
-
 import { logger } from '../utils/logger';
+
 
 async function testCleanTunnelConnection(): Promise<void> {
   logger.info('🧪 === TESTING CLEAN TUNNEL CONNECTION ARCHITECTURE ===');
@@ -65,7 +67,7 @@ async function testCleanTunnelConnection(): Promise<void> {
       if (result.portInfo.allPorts.length > 0) {
         logger.info('📋 Port Details:');
         for (const port of result.portInfo.allPorts) {
-          logger.info(`  - Port ${(port as any).remotePort || port.portNumber}: ${(port as any).localPort || 'local port unknown'} (${(port as any).protocol || 'unknown protocol'})`);
+          logger.info(`  - Port ${port.portNumber || 'local port unknown'} (${port.protocol || 'unknown protocol'})`);
         }
       }
       
@@ -74,11 +76,10 @@ async function testCleanTunnelConnection(): Promise<void> {
         logger.info('');
         logger.info('🧪 Testing RPC connection...');
         try {
-          // Test keep-alive
-          (result.rpcConnection as any).keepAlive();
-          logger.info('✅ RPC keep-alive test successful');
-        } catch (rpcError: any) {
-          logger.warn(`⚠️  RPC test failed: ${rpcError.message}`);
+          result.rpcConnection.getCurrentPrivateKey();
+          logger.info('✅ RPC test successful');
+        } catch (rpcError: unknown) {
+          logger.warn(`⚠️  RPC test failed: ${rpcError instanceof Error ? rpcError.message : String(rpcError)}`);
         }
       }
       
@@ -166,15 +167,16 @@ async function testTraceListener() {
   
   // Mock tunnel client for testing
   const mockClient = {
-    trace: () => {}
+    trace: (_level: TraceLevel, _eventId: number, _msg: string, _err?: Error) => {}
   };
   
-  traceListener.attachToClient(mockClient as any);
+  traceListener.attachToClient(mockClient as TunnelRelayTunnelClient);
   
-  // Simulate trace calls
-  (mockClient as any).trace('info', 'test', 'Forwarding from 127.0.0.1:12345 to host port 16634.');
-  (mockClient as any).trace('info', 'test', 'Forwarding from 127.0.0.1:54321 to host port 2222.');
-  (mockClient as any).trace('info', 'test', 'Connection established to tunnel');
+  // Simulate trace calls using TraceLevel enum values
+  // Note: TraceLevel.Info is typically 4 in the enum
+  mockClient.trace(TraceLevel.Info, 1001, 'Forwarding from 127.0.0.1:12345 to host port 16634.');
+  mockClient.trace(TraceLevel.Info, 1001, 'Forwarding from 127.0.0.1:54321 to host port 2222.');
+  mockClient.trace(TraceLevel.Info, 1002, 'Connection established to tunnel');
   
   // Wait a moment for processing
   await new Promise(resolve => setTimeout(resolve, 100));
@@ -186,7 +188,7 @@ async function testTraceListener() {
   const portMappings = traceListener.extractPortMappingsFromTraces();
   logger.info('🔌 Extracted port mappings:', { portMappings });
   
-  traceListener.detachFromClient(mockClient as any);
+  traceListener.detachFromClient(mockClient as TunnelRelayTunnelClient);
   logger.info('✅ Trace listener test completed');
 }
 

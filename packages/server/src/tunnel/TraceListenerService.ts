@@ -5,13 +5,14 @@
 
 import { TunnelRelayTunnelClient } from '@microsoft/dev-tunnels-connections';
 import { logger } from '../utils/logger';
+import { TraceLevel } from '@microsoft/dev-tunnels-ssh';
 
 export interface TraceMessage {
   timestamp: Date;
   level: string | number;
   eventId: string | number;
   message: string;
-  error?: any;
+  error?: Error;
   category: 'port_forwarding' | 'connection' | 'auth' | 'general';
   parsedData?: Record<string, unknown>;
 }
@@ -41,7 +42,7 @@ export interface TraceListenerOptions {
 export class TraceListenerService {
   private traces: TraceMessage[] = [];
   private options: Required<TraceListenerOptions>;
-  private originalTraceFunctions = new WeakMap<any, (...args: any[]) => void>();
+  private originalTraceFunctions = new WeakMap<TunnelRelayTunnelClient, (level: TraceLevel, eventId: number, msg: string, err?: Error) => void>();
   private attachedClients = new Set<TunnelRelayTunnelClient>();
 
   constructor(options: TraceListenerOptions = {}) {
@@ -71,7 +72,7 @@ export class TraceListenerService {
     this.originalTraceFunctions.set(client, originalTrace);
 
     // Override trace function with our interceptor
-    client.trace = (level: any, eventId: any, msg: any, err?: any) => {
+    client.trace = (level: TraceLevel, eventId: number, msg: string, err?: Error)=> {
       // Call original trace first
       if (originalTrace && typeof originalTrace === 'function') {
         originalTrace.call(client, level, eventId, msg, err);
@@ -99,7 +100,7 @@ export class TraceListenerService {
     // Restore original trace function
     const originalTrace = this.originalTraceFunctions.get(client);
     if (originalTrace && typeof originalTrace === 'function') {
-      client.trace = originalTrace as any;
+      client.trace = originalTrace;
       this.originalTraceFunctions.delete(client);
     }
 
@@ -110,7 +111,7 @@ export class TraceListenerService {
   /**
    * Process incoming trace message
    */
-  private processTraceMessage(level: any, eventId: any, msg: any, err?: any): void {
+  private processTraceMessage(level: TraceLevel, eventId: number, msg: string, err?: Error): void {
     try {
       const messageStr = typeof msg === 'string' ? msg : String(msg);
       
@@ -137,7 +138,7 @@ export class TraceListenerService {
   /**
    * Categorize message and extract structured data
    */
-  private categorizeAndParseMessage(level: any, eventId: any, msg: string, err?: any): TraceMessage {
+  private categorizeAndParseMessage(level: TraceLevel, eventId: number, msg: string, err?: Error): TraceMessage {
     const timestamp = new Date();
     
     // Port forwarding messages
@@ -169,21 +170,26 @@ export class TraceListenerService {
   /**
    * Parse port forwarding specific messages
    */
-  private parsePortForwardingMessage(
-    timestamp: Date, 
-    level: any, 
-    eventId: any, 
-    msg: string, 
-    err?: any
-  ): PortForwardingTrace {
+  private parsePortForwardingMessage(timestamp: Date, level: TraceLevel, eventId: number, msg: string, err?: Error): PortForwardingTrace {
     const parsedData: PortForwardingTrace['parsedData'] = {};
 
-    // Pattern 1: "Forwarding from 127.0.0.1:XXXXX to host port YYYY"
-    const forwardMatch = msg.match(/Forwarding from 127\.0\.0\.1:(\d+) to host port (\d+)/);
+    // Pattern 1: "Forwarding from 127.0.0.1:XXXXX to host port YYYY" (with optional period)
+    const forwardMatch = msg.match(/Forwarding from 127\.0\.0\.1:(\d+) to host port (\d+)\.?/);
     if (forwardMatch) {
       parsedData.localPort = parseInt(forwardMatch[1], 10);
       parsedData.remotePort = parseInt(forwardMatch[2], 10);
       parsedData.direction = 'forward';
+    }
+
+    // Pattern 1b: IPv6 forwarding "Forwarding from ::1:XXXXX to host port YYYY"
+    if (!forwardMatch) {
+      const ipv6ForwardMatch = msg.match(/Forwarding from ::1:(\d+) to host port (\d+)\.?/);
+      if (ipv6ForwardMatch) {
+        parsedData.localPort = parseInt(ipv6ForwardMatch[1], 10);
+        parsedData.remotePort = parseInt(ipv6ForwardMatch[2], 10);
+        parsedData.direction = 'forward';
+        parsedData.protocol = 'ipv6';
+      }
     }
 
     // Pattern 2: "Port forwarding established"
@@ -222,14 +228,8 @@ export class TraceListenerService {
   /**
    * Parse connection specific messages
    */
-  private parseConnectionMessage(
-    timestamp: Date, 
-    level: any, 
-    eventId: any, 
-    msg: string, 
-    err?: any
-  ): TraceMessage {
-    const parsedData: Record<string, any> = {};
+  private parseConnectionMessage(timestamp: Date, level: TraceLevel, eventId: number, msg: string, err?: Error): TraceMessage {
+    const parsedData: Record<string, unknown> = {};
 
     // Connection state changes
     if (msg.includes('Connected') || msg.includes('connected')) {
@@ -260,14 +260,8 @@ export class TraceListenerService {
   /**
    * Parse auth specific messages (careful with sensitive data)
    */
-  private parseAuthMessage(
-    timestamp: Date, 
-    level: any, 
-    eventId: any, 
-    msg: string, 
-    err?: any
-  ): TraceMessage {
-    const parsedData: Record<string, any> = {};
+  private parseAuthMessage(timestamp: Date, level: TraceLevel, eventId: number, msg: string, err?: Error): TraceMessage {
+    const parsedData: Record<string, unknown> = {};
 
     // Auth state (without exposing tokens)
     if (msg.includes('authenticated') || msg.includes('Authenticated')) {
@@ -353,9 +347,9 @@ export class TraceListenerService {
     
     switch (this.options.logLevel) {
       case 'errors':
-        return levelStr.includes('error') || traceMessage.error;
+        return levelStr.includes('error') || !!traceMessage.error;
       case 'warnings':
-        return levelStr.includes('error') || levelStr.includes('warn') || traceMessage.error;
+        return levelStr.includes('error') || levelStr.includes('warn') || !!traceMessage.error;
       case 'info':
         return !levelStr.includes('debug') && !levelStr.includes('trace');
       default:
@@ -419,8 +413,8 @@ export class TraceListenerService {
         
         if (!exists) {
           mappings.push({
-            localPort: trace.parsedData.localPort!,
-            remotePort: trace.parsedData.remotePort!,
+            localPort: trace.parsedData.localPort ?? 0,
+            remotePort: trace.parsedData.remotePort ?? 0,
             protocol: trace.parsedData.protocol
           });
         }
@@ -433,7 +427,7 @@ export class TraceListenerService {
   /**
    * Get recent traces (last N messages)
    */
-  getRecentTraces(count: number = 50): TraceMessage[] {
+  getRecentTraces(count = 50): TraceMessage[] {
     return this.traces.slice(-count);
   }
 

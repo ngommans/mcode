@@ -1,7 +1,6 @@
 /**
- * Interface definitions for external library types
- * These interfaces define the minimal contracts needed by our codebase
- * without importing the full external library types
+ * External library type imports and extensions
+ * We import actual Microsoft types since we create and manage these objects
  */
 
 /**
@@ -14,33 +13,14 @@ export interface RpcConnection {
   close(): Promise<void>;
 }
 
-/**
- * Interface for tunnel client
- * Matches the TunnelRelayTunnelClient from dev-tunnels
- * Note: connectedTunnel is private in the real implementation
- */
-export interface TunnelClient {
-  dispose(): Promise<void>;
-}
+// Re-export Microsoft tunnel client as-is
+export type { TunnelRelayTunnelClient as TunnelClient } from '@microsoft/dev-tunnels-connections';
 
-/**
- * Interface for connected tunnel
- * Matches the Tunnel from dev-tunnels
- */
-export interface ConnectedTunnel {
-  tunnelId: string;
-  clusterId: string;
-  domain: string;
-  // Add other properties as needed
-}
+// Re-export Microsoft types for convenience
+export type { Tunnel as ConnectedTunnel } from '@microsoft/dev-tunnels-contracts';
+export type { TunnelPort as TunnelPortContract } from '@microsoft/dev-tunnels-contracts';
 
-/**
- * Interface for tunnel management client
- * Matches the TunnelManagementHttpClient from dev-tunnels
- */
-export interface TunnelManagementClient {
-  // Add methods as needed for port management
-  // This interface can be expanded based on actual usage
-}
+// Re-export Microsoft tunnel management client
+export type { TunnelManagementHttpClient as TunnelManagementClient } from '@microsoft/dev-tunnels-management';
 
-// TerminalConnection is already exported from tunnel.ts
+// TunnelConnection is defined in server package

@@ -5,15 +5,16 @@
 
 import { TunnelRelayTunnelClient } from '@microsoft/dev-tunnels-connections';
 import { ManagementApiVersions, TunnelManagementHttpClient } from '@microsoft/dev-tunnels-management';
-import { TunnelAccessScopes, TunnelProtocol } from '@microsoft/dev-tunnels-contracts';
+import { Tunnel, TunnelAccessScopes, TunnelProtocol } from '@microsoft/dev-tunnels-contracts';
 import type { TunnelProperties, TunnelConnectionResult, PortInformation, TunnelPort as SharedTunnelPort } from 'tcode-shared';
 import TunnelPortService from './TunnelPortService.js';
 import { createInvoker, type CodespaceRPCInvoker } from '../rpc/CodespaceRPCInvoker.js';
+import { PortMapping } from './PortForwardingManager.js';
 
 import { logger } from '../utils/logger';
 
 // Helper function to convert PortMapping to SharedTunnelPort
-function convertPortMappingToSharedTunnelPort(mapping: any, clusterId: string, tunnelId: string): SharedTunnelPort {
+function convertPortMappingToSharedTunnelPort(mapping: PortMapping, clusterId: string, tunnelId: string): SharedTunnelPort {
   return {
     portNumber: mapping.localPort,
     protocol: mapping.protocol || 'unknown',
@@ -124,7 +125,7 @@ export async function connectToTunnel(
 
     // Step 1: RPC Connection and SSH Server Start (following GitHub CLI pattern)
     logger.info('🚀 === PRIMARY: RPC INVOKER PHASE ===');
-    const rpcResult = await createRPCConnectionAndStartSSH(portService, tunnelProperties);
+    const rpcResult = await createRPCConnectionAndStartSSH(portService, tunnelProperties, client);
     
     if (rpcResult.sshServerInfo && rpcResult.sshServerInfo.isRunning) {
       logger.info(`✅ RPC SSH server started successfully:`, { sshServerInfo: rpcResult.sshServerInfo });
@@ -154,10 +155,10 @@ export async function connectToTunnel(
         
         return {
           success: true,
-          client: client as any,
+          client: client,
           portInfo: await getUpdatedPortInfo(portService, tunnelProperties),
           sshPort: sshDetection.localPort,
-          rpcConnection: rpcResult.rpcConnection as any,
+          rpcConnection: rpcResult.rpcConnection,
           cleanup: () => cleanupConnection(client, portService)
         };
       } else {
@@ -205,10 +206,8 @@ export async function connectToTunnel(
     }
     if (client) {
       try {
-        // TunnelRelayTunnelClient doesn't have close method, it has disconnect
-        if (typeof (client as any).disconnect === 'function') {
-          await (client as any).disconnect();
-        }
+        // TunnelRelayTunnelClient doesn't have close method, it has dispose
+        await client.dispose();
       } catch (closeError) {
         logger.error('Error closing client:', { closeError });
       }
@@ -229,7 +228,8 @@ export async function connectToTunnel(
  */
 async function createRPCConnectionAndStartSSH(
   portService: TunnelPortService,
-  tunnelProperties: TunnelProperties
+  tunnelProperties: TunnelProperties,
+  tunnelClient: TunnelRelayTunnelClient
 ): Promise<RPCInvokerResult> {
   try {
     logger.info('🔍 Detecting RPC port using clean API...');
@@ -246,12 +246,6 @@ async function createRPCConnectionAndStartSSH(
 
     // Create RPC invoker (this will use the detected RPC port internally)
     logger.info('🚀 Creating RPC invoker...');
-    // Get tunnel client from port service for RPC invoker
-    const tunnelClient = (portService as any).tunnelClient;
-    if (!tunnelClient) {
-      throw new Error('Tunnel client not available from port service');
-    }
-    
     const rpcInvoker = await createInvoker(
       tunnelClient,
       tunnelProperties.connectAccessToken
@@ -320,7 +314,7 @@ async function checkExistingSSHServerClean(
  */
 async function ensureSSHTunnelPortExists(
   tunnelManagementClient: TunnelManagementHttpClient,
-  tunnel: any,
+  tunnel: Tunnel,
   remoteSSHPort: number,
   tunnelProperties: TunnelProperties
 ): Promise<void> {
@@ -371,24 +365,8 @@ async function triggerPortForwardingRefresh(client: TunnelRelayTunnelClient): Pr
     logger.info(`📡 Following GitHub CLI pattern: RefreshPorts + WaitForForwardedPort`);
     
     // Call RefreshPorts to trigger the codespace to send tcpip-forward request
-    if (typeof (client as any).refreshPorts === 'function') {
-      await (client as any).refreshPorts();
-      logger.info(`✅ RefreshPorts() completed - should trigger tcpip-forward from codespace`);
-    } else {
-      logger.warn(`⚠️  refreshPorts method not available, trying alternatives...`);
-      
-      // Try alternative method names
-      if (typeof (client as any).RefreshPorts === 'function') {
-        await (client as any).RefreshPorts();
-        logger.info(`✅ RefreshPorts() (capitalized) completed`);
-      } else if (typeof (client as any).refresh === 'function') {
-        await (client as any).refresh();
-        logger.info(`✅ refresh() completed`);
-      } else {
-        logger.warn(`⚠️  No refresh methods found - relying on automatic refresh`);
-      }
-    }
-    
+    await client.refreshPorts();
+    logger.info(`✅ RefreshPorts() completed - should trigger tcpip-forward from codespace`);
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.warn('⚠️  Port forwarding refresh failed:', { error: errorMessage });
@@ -433,19 +411,12 @@ function cleanupConnection(
   }
   
   if (client) {
-    try {
-      // TunnelRelayTunnelClient doesn't have close method, it has disconnect
-      if (typeof (client as any).disconnect === 'function') {
-        (client as any).disconnect().catch((error: any) => {
-          logger.error('Error disconnecting tunnel client:', { error });
-        });
-      }
-    } catch (error) {
+    client.dispose().catch((error) => {
       logger.error('Error disconnecting tunnel client:', { error });
-    }
+    }).finally(() => {
+      logger.info('✅ Clean tunnel connection cleanup completed');
+    });
   }
-  
-  logger.info('✅ Clean tunnel connection cleanup completed');
 }
 
 export { TunnelPortService };
