@@ -1,4 +1,4 @@
-
+import type { VNode, JSX } from 'preact';
 
 export interface BranchInfo {
   repository?: {
@@ -29,7 +29,7 @@ interface BranchDialogProps {
   onClose: () => void;
 }
 
-export function BranchDialog({ isOpen, branchInfo, onClose }: BranchDialogProps) {
+export function BranchDialog({ isOpen, branchInfo, onClose }: BranchDialogProps): VNode | null {
   if (!isOpen || !branchInfo) {
     return null;
   }
@@ -43,17 +43,21 @@ export function BranchDialog({ isOpen, branchInfo, onClose }: BranchDialogProps)
     return branchInfo?.git_status?.ref || 'main';
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- Preact JSX elements are properly typed but ESLint can't infer this
   return (
     <div className="modal modal-open" onClick={onClose}>
-      <div className="modal-box w-11/12 max-w-2xl bg-[#1e1e1e] border border-[#333]" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal-box w-11/12 max-w-2xl bg-[#1e1e1e] border border-[#333]"
+        onClick={(e: JSX.TargetedMouseEvent<HTMLDivElement>) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="modal-header bg-[#2d2d2d] p-4 rounded-t-lg -mx-6 -mt-6 mb-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <i className="codicon codicon-git-branch text-[#007acc] text-lg"></i>
             <h3 className="font-bold text-lg text-white">Branch Information</h3>
           </div>
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className="btn btn-sm btn-circle btn-ghost text-[#cccccc] hover:bg-[#404040]"
           >
             ✕
@@ -72,9 +76,9 @@ export function BranchDialog({ isOpen, branchInfo, onClose }: BranchDialogProps)
               <div className="flex items-center justify-between">
                 <span className="text-[#aaaaaa]">Source (Git):</span>
                 {branchInfo?.repository?.html_url ? (
-                  <a 
-                    href={branchInfo.repository.html_url} 
-                    target="_blank" 
+                  <a
+                    href={branchInfo.repository.html_url}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-[#007acc] hover:text-[#005a9e] font-mono flex items-center gap-1"
                   >
@@ -93,9 +97,11 @@ export function BranchDialog({ isOpen, branchInfo, onClose }: BranchDialogProps)
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[#aaaaaa]">State:</span>
-                <span className={`badge badge-outline ${
-                  branchInfo?.state === 'Available' ? 'badge-success' : 'badge-info'
-                }`}>
+                <span
+                  className={`badge badge-outline ${
+                    branchInfo?.state === 'Available' ? 'badge-success' : 'badge-info'
+                  }`}
+                >
                   {branchInfo?.state || 'Unknown'}
                 </span>
               </div>
@@ -142,9 +148,13 @@ export function BranchDialog({ isOpen, branchInfo, onClose }: BranchDialogProps)
               {branchInfo.git_status?.has_uncommitted_changes !== undefined && (
                 <div className="flex items-center justify-between">
                   <span className="text-[#aaaaaa]">Uncommitted changes:</span>
-                  <span className={`badge badge-outline ${
-                    branchInfo.git_status?.has_uncommitted_changes ? 'badge-warning' : 'badge-success'
-                  }`}>
+                  <span
+                    className={`badge badge-outline ${
+                      branchInfo.git_status?.has_uncommitted_changes
+                        ? 'badge-warning'
+                        : 'badge-success'
+                    }`}
+                  >
                     {branchInfo.git_status?.has_uncommitted_changes ? 'Yes' : 'No'}
                   </span>
                 </div>
@@ -152,9 +162,13 @@ export function BranchDialog({ isOpen, branchInfo, onClose }: BranchDialogProps)
               {branchInfo.git_status?.has_unpushed_changes !== undefined && (
                 <div className="flex items-center justify-between">
                   <span className="text-[#aaaaaa]">Unpushed changes:</span>
-                  <span className={`badge badge-outline ${
-                    branchInfo.git_status?.has_unpushed_changes ? 'badge-warning' : 'badge-success'
-                  }`}>
+                  <span
+                    className={`badge badge-outline ${
+                      branchInfo.git_status?.has_unpushed_changes
+                        ? 'badge-warning'
+                        : 'badge-success'
+                    }`}
+                  >
                     {branchInfo.git_status?.has_unpushed_changes ? 'Yes' : 'No'}
                   </span>
                 </div>
@@ -187,7 +201,7 @@ export function BranchDialog({ isOpen, branchInfo, onClose }: BranchDialogProps)
 
         {/* Footer */}
         <div className="modal-action bg-[#2d2d2d] p-4 rounded-b-lg -mx-6 -mb-6 mt-4 flex justify-end">
-          <button 
+          <button
             onClick={onClose}
             className="btn btn-primary bg-[#007acc] hover:bg-[#005a9e] border-none"
           >

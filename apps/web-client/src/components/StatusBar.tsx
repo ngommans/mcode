@@ -1,4 +1,4 @@
-
+import type { VNode } from 'preact';
 
 type Status = 'connected' | 'disconnected' | 'connecting' | 'reconnecting' | 'error';
 
@@ -18,27 +18,58 @@ interface StatusBarProps {
 
 // Map statuses to VS Code theme colors and correct Codicons
 const statusConfig = {
-  connected: { bgColor: '#007acc', iconColor: '#ffffff', textColor: '#ffffff', icon: 'codicon-remote', text: 'Connected' },
-  disconnected: { bgColor: '#2d2d2d', iconColor: '#cccccc', textColor: '#cccccc', icon: 'codicon-remote', text: 'Open Connection' },
-  connecting: { bgColor: '#2d2d2d', iconColor: '#ffd43b', textColor: '#cccccc', icon: 'codicon-sync', text: 'Connecting...', spin: true },
-  reconnecting: { bgColor: '#2d2d2d', iconColor: '#ffd43b', textColor: '#cccccc', icon: 'codicon-sync', text: 'Reconnecting...', spin: true },
-  error: { bgColor: '#2d2d2d', iconColor: '#ff6b6b', textColor: '#cccccc', icon: 'codicon-error', text: 'Error' },
+  connected: {
+    bgColor: '#007acc',
+    iconColor: '#ffffff',
+    textColor: '#ffffff',
+    icon: 'codicon-remote',
+    text: 'Connected',
+  },
+  disconnected: {
+    bgColor: '#2d2d2d',
+    iconColor: '#cccccc',
+    textColor: '#cccccc',
+    icon: 'codicon-remote',
+    text: 'Open Connection',
+  },
+  connecting: {
+    bgColor: '#2d2d2d',
+    iconColor: '#ffd43b',
+    textColor: '#cccccc',
+    icon: 'codicon-sync',
+    text: 'Connecting...',
+    spin: true,
+  },
+  reconnecting: {
+    bgColor: '#2d2d2d',
+    iconColor: '#ffd43b',
+    textColor: '#cccccc',
+    icon: 'codicon-sync',
+    text: 'Reconnecting...',
+    spin: true,
+  },
+  error: {
+    bgColor: '#2d2d2d',
+    iconColor: '#ff6b6b',
+    textColor: '#cccccc',
+    icon: 'codicon-error',
+    text: 'Error',
+  },
 };
 
-export function StatusBar({ 
-  status, 
-  statusText, 
-  portCount, 
+export function StatusBar({
+  status,
+  statusText,
+  portCount,
   branchName = 'main',
   gitStatus,
   onOpenConnectionModal,
   onDisconnect,
   onOpenPortsDialog,
-  onOpenBranchDialog
-}: StatusBarProps) {
+  onOpenBranchDialog,
+}: StatusBarProps): VNode {
   const config = statusConfig[status] || statusConfig.disconnected;
   const displayText = statusText || config.text;
-  
 
   const handleStatusClick = () => {
     if (status === 'disconnected' || status === 'error') {
@@ -56,27 +87,28 @@ export function StatusBar({
     onOpenPortsDialog();
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- Preact JSX elements are properly typed but ESLint can't infer this
   return (
     <div className="flex items-center bg-[#252526] text-[#cccccc] font-mono text-xs h-9 w-full">
       {/* Left side: Connection, Branch, and Ports buttons connected */}
       <div className="flex items-center">
-        <button 
+        <button
           className="flex items-center gap-2 px-3 py-1 h-9 border-r border-[#333] hover:bg-[#404040]"
           onClick={handleStatusClick}
-          style={{ 
+          style={{
             backgroundColor: config.bgColor,
-            color: config.textColor
+            color: config.textColor,
           }}
         >
-          <i 
-            className={`codicon ${config.icon}${(config as {spin?: boolean}).spin ? ' animate-spin' : ''}`}
+          <i
+            className={`codicon ${config.icon}${(config as { spin?: boolean }).spin ? ' animate-spin' : ''}`}
             style={{ color: config.iconColor }}
           ></i>
           <span>{displayText}</span>
         </button>
-        
+
         {gitStatus && (
-          <button 
+          <button
             className="flex items-center gap-2 px-3 py-1 h-9 bg-[#2d2d2d] hover:bg-[#404040] border-r border-[#333]"
             onClick={handleBranchClick}
           >
@@ -100,7 +132,7 @@ export function StatusBar({
         )}
 
         {portCount > 0 && (
-          <button 
+          <button
             className="flex items-center gap-2 px-3 py-1 h-9 bg-[#2d2d2d] hover:bg-[#404040] border-r border-[#333]"
             onClick={handleNetworkClick}
           >

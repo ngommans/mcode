@@ -1,3 +1,4 @@
+import type { VNode, JSX } from 'preact';
 import { filterAccessiblePorts, getAccessibleUrls, type Port } from '../utils/portUtils';
 
 interface PortInfo {
@@ -12,7 +13,12 @@ interface PortsDialogProps {
   onRefresh: () => void;
 }
 
-export function PortsDialog({ isOpen, portInfo, onClose, onRefresh }: PortsDialogProps) {
+export function PortsDialog({
+  isOpen,
+  portInfo,
+  onClose,
+  onRefresh,
+}: PortsDialogProps): VNode | null {
   const handlePortClick = (url: string) => {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
@@ -35,7 +41,7 @@ export function PortsDialog({ isOpen, portInfo, onClose, onRefresh }: PortsDialo
   const getPortTypeLabel = (port: Port) => {
     const isUserPort = port.labels?.includes('UserForwardedPort');
     const isManagementPort = port.labels?.includes('InternalPort');
-    
+
     if (isUserPort) return 'User';
     if (isManagementPort) return 'Management';
     return 'Application';
@@ -43,9 +49,8 @@ export function PortsDialog({ isOpen, portInfo, onClose, onRefresh }: PortsDialo
 
   const getPortTypeBadge = (port: Port) => {
     const type = getPortTypeLabel(port);
-    const badgeClass = type === 'User' ? 'badge-primary' : 
-                      type === 'Management' ? 'badge-warning' : 
-                      'badge-success';
+    const badgeClass =
+      type === 'User' ? 'badge-primary' : type === 'Management' ? 'badge-warning' : 'badge-success';
     return `badge ${badgeClass} badge-sm`;
   };
 
@@ -53,9 +58,13 @@ export function PortsDialog({ isOpen, portInfo, onClose, onRefresh }: PortsDialo
     return null;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- Preact JSX elements are properly typed but ESLint can't infer this
   return (
     <div className="modal modal-open" onClick={onClose}>
-      <div className="modal-box w-11/12 max-w-4xl bg-[#1e1e1e] border border-[#333]" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal-box w-11/12 max-w-4xl bg-[#1e1e1e] border border-[#333]"
+        onClick={(e: JSX.TargetedMouseEvent<HTMLDivElement>) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="modal-header bg-[#2d2d2d] p-4 rounded-t-lg -mx-6 -mt-6 mb-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -66,15 +75,15 @@ export function PortsDialog({ isOpen, portInfo, onClose, onRefresh }: PortsDialo
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button 
+            <button
               onClick={onRefresh}
               className="btn btn-sm btn-ghost text-[#cccccc] hover:bg-[#404040]"
               title="Refresh ports"
             >
               <i className="codicon codicon-refresh"></i>
             </button>
-            <button 
-              onClick={onClose} 
+            <button
+              onClick={onClose}
               className="btn btn-sm btn-circle btn-ghost text-[#cccccc] hover:bg-[#404040]"
             >
               ✕
@@ -95,8 +104,9 @@ export function PortsDialog({ isOpen, portInfo, onClose, onRefresh }: PortsDialo
           ) : (
             <div className="space-y-2">
               {filteredPorts.map((port) => (
-                <div 
-                  key={port.portNumber} 
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- Preact JSX elements in map are properly typed
+                <div
+                  key={port.portNumber}
                   className="border border-[#444] rounded-lg p-4 bg-[#2d2d2d] hover:bg-[#333] transition-colors"
                 >
                   <div className="flex items-center justify-between">
@@ -107,9 +117,7 @@ export function PortsDialog({ isOpen, portInfo, onClose, onRefresh }: PortsDialo
                           <span className="font-mono text-[#cccccc] font-medium">
                             Port {port.portNumber}
                           </span>
-                          <span className={getPortTypeBadge(port)}>
-                            {getPortTypeLabel(port)}
-                          </span>
+                          <span className={getPortTypeBadge(port)}>{getPortTypeLabel(port)}</span>
                           {port.protocol && (
                             <span className="badge badge-outline badge-sm text-[#aaaaaa]">
                               {port.protocol.toUpperCase()}
@@ -118,23 +126,22 @@ export function PortsDialog({ isOpen, portInfo, onClose, onRefresh }: PortsDialo
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="flex flex-col items-end gap-1">
                       {getAccessibleUrls(port).map((uri, index) => (
-                          <button
-                            key={index}
-                            onClick={() => handlePortClick(uri)}
-                            className="btn btn-sm btn-primary bg-[#007acc] hover:bg-[#005a9e] border-none text-white flex items-center gap-2"
-                            title={`Open ${uri} in new window`}
-                          >
-                            <span className="text-sm">Open in Browser</span>
-                            <i className="codicon codicon-link-external text-sm"></i>
-                          </button>
-                        ))}
+                        // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- Preact JSX elements in map are properly typed
+                        <button
+                          key={index}
+                          onClick={() => handlePortClick(uri)}
+                          className="btn btn-sm btn-primary bg-[#007acc] hover:bg-[#005a9e] border-none text-white flex items-center gap-2"
+                          title={`Open ${uri} in new window`}
+                        >
+                          <span className="text-sm">Open in Browser</span>
+                          <i className="codicon codicon-link-external text-sm"></i>
+                        </button>
+                      ))}
                       {getAccessibleUrls(port).length === 0 && (
-                        <div className="text-xs text-[#666] italic">
-                          No standard port URL
-                        </div>
+                        <div className="text-xs text-[#666] italic">No standard port URL</div>
                       )}
                     </div>
                   </div>
@@ -150,7 +157,7 @@ export function PortsDialog({ isOpen, portInfo, onClose, onRefresh }: PortsDialo
             <i className="codicon codicon-info mr-2"></i>
             Click URLs to open applications in new windows
           </div>
-          <button 
+          <button
             onClick={onClose}
             className="btn btn-primary bg-[#007acc] hover:bg-[#005a9e] border-none"
           >

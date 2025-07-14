@@ -1,20 +1,21 @@
-{
-  "root": true,
-  "parser": "@typescript-eslint/parser",
-  "parserOptions": {
-    "ecmaVersion": 2022,
-    "sourceType": "module",
-    "project": ["./tsconfig.json", "./packages/*/tsconfig.json", "./apps/*/tsconfig.json"]
+module.exports = {
+  root: true,
+  parser: "@typescript-eslint/parser",
+  parserOptions: {
+    ecmaVersion: 2022,
+    sourceType: "module",
+    project: "./tsconfig.eslint.json",
+    tsconfigRootDir: __dirname,
   },
-  "plugins": ["@typescript-eslint", "react-hooks"],
-  "extends": [
+  plugins: ["@typescript-eslint", "react-hooks"],
+  extends: [
     "eslint:recommended",
     "plugin:@typescript-eslint/recommended",
     "plugin:@typescript-eslint/recommended-requiring-type-checking",
     "plugin:@typescript-eslint/strict",
     "prettier"
   ],
-  "rules": {
+  rules: {
     // Type Safety - Strict mode: no any types allowed
     "@typescript-eslint/no-explicit-any": "error",
     "@typescript-eslint/no-unused-vars": ["error", { 
@@ -60,16 +61,16 @@
     "no-undef": "error",
     "no-redeclare": "error"
   },
-  "env": {
-    "node": true,
-    "browser": true,
-    "es2022": true
+  env: {
+    node: true,
+    browser: true,
+    es2022: true
   },
-  "ignorePatterns": ["dist/", "node_modules/", "*.d.ts"],
-  "overrides": [
+  ignorePatterns: ["dist/", "node_modules/", "*.d.ts"],
+  overrides: [
     {
-      "files": ["**/*.test.ts", "**/*.spec.ts", "**/test/**/*.ts", "**/__tests__/**/*.ts"],
-      "rules": {
+      files: ["**/*.test.ts", "**/*.spec.ts", "**/test/**/*.ts", "**/__tests__/**/*.ts"],
+      rules: {
         // Allow console in test files
         "no-console": "off",
         // Allow any in test mocks and fixtures
@@ -80,27 +81,27 @@
       }
     },
     {
-      "files": ["apps/web-client/**/*.tsx", "apps/web-client/**/*.ts"],
-      "extends": ["plugin:react-hooks/recommended"],
-      "rules": {
+      files: ["apps/web-client/**/*.tsx", "apps/web-client/**/*.ts"],
+      extends: ["plugin:react-hooks/recommended"],
+      rules: {
         // React/Preact specific rules
         "react-hooks/exhaustive-deps": "error",
         "react-hooks/rules-of-hooks": "error",
         // Allow console.log in client-side code for debugging
         "no-console": ["warn", { "allow": ["warn", "error", "log"] }]
       },
-      "env": {
-        "browser": true
+      env: {
+        browser: true
       }
     },
     {
-      "files": [
+      files: [
         "**/utils/typeSafe*.ts",
         "**/utils/typeSafeData.ts", 
         "**/utils/typeSafeGitHub.ts",
         "**/utils/typeSafeTunnel.ts"
       ],
-      "rules": {
+      rules: {
         // DESIGN PATTERN: Centralized Unsafe Operations
         // These utility files are the ONLY place where unsafe operations are allowed.
         // They provide type-safe wrappers around external APIs (GitHub, Microsoft tunnels, etc.)
@@ -115,4 +116,4 @@
       }
     }
   ]
-}
+};

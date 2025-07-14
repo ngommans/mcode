@@ -2,15 +2,16 @@
  * Type-safe utilities for handling GitHub API responses
  * Centralizes all unsafe operations with proper validation and type guards
  */
-
-import type { Codespace, CodespaceState, TunnelProperties } from 'tcode-shared';
-import { 
-  isGitHubCodespaceState, 
-  isRetryableCodespaceState, 
+import {
+  Codespace,
+  CodespaceState,
+  isGitHubCodespaceState,
+  isRetryableCodespaceState,
   isAvailableCodespaceState,
   isGitHubCodespace,
   type GitHubListCodespacesResponse,
-  type GitHubGetCodespaceResponse
+  type GitHubGetCodespaceResponse,
+  TunnelProperties,
 } from 'tcode-shared';
 
 /**
@@ -18,10 +19,10 @@ import {
  */
 function isCodespaceState(value: unknown): value is CodespaceState {
   if (typeof value !== 'string') return false;
-  
+
   // Check GitHub API states first
   if (isGitHubCodespaceState(value)) return true;
-  
+
   // Check our internal states
   return ['Connected', 'Disconnected'].includes(value);
 }
@@ -40,7 +41,9 @@ export function parseGitHubResponse(rawData: string): unknown {
   try {
     return JSON.parse(rawData);
   } catch (error) {
-    throw new Error(`Failed to parse GitHub API response: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Failed to parse GitHub API response: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
@@ -51,14 +54,14 @@ export function extractCodespaces(response: unknown): Codespace[] {
   if (typeof response !== 'object' || response === null) {
     return [];
   }
-  
+
   const data = response as GitHubListCodespacesResponse;
   const codespaces = data.codespaces;
-  
+
   if (!Array.isArray(codespaces)) {
     return [];
   }
-  
+
   return codespaces.filter(isCodespace);
 }
 
@@ -69,10 +72,10 @@ export function extractCodespaceState(response: unknown): CodespaceState | null 
   if (typeof response !== 'object' || response === null) {
     return null;
   }
-  
+
   const data = response as Record<string, unknown>;
   const state = data.state;
-  
+
   return isCodespaceState(state) ? state : null;
 }
 
@@ -83,13 +86,13 @@ export function extractTunnelProperties(response: unknown): TunnelProperties | n
   if (typeof response !== 'object' || response === null) {
     return null;
   }
-  
+
   const data = response as GitHubGetCodespaceResponse;
   const tunnelProps = data.connection?.tunnelProperties;
-  
+
   if (typeof tunnelProps === 'object' && tunnelProps !== null) {
     const props = tunnelProps as Record<string, unknown>;
-    
+
     // Validate required TunnelProperties fields
     if (
       typeof props.tunnelId === 'string' &&
@@ -105,11 +108,11 @@ export function extractTunnelProperties(response: unknown): TunnelProperties | n
         domain: props.domain,
         connectAccessToken: props.connectAccessToken,
         managePortsAccessToken: props.managePortsAccessToken,
-        serviceUri: props.serviceUri
+        serviceUri: props.serviceUri,
       };
     }
   }
-  
+
   return null;
 }
 
