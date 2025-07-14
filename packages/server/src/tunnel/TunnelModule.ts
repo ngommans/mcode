@@ -12,6 +12,7 @@ import { createInvoker, type CodespaceRPCInvoker } from '../rpc/CodespaceRPCInvo
 import { PortMapping } from './PortForwardingManager.js';
 
 import { logger } from '../utils/logger.js';
+import { extractErrorMessage } from '../utils/typeSafeTunnel.js';
 
 // Helper function to convert PortMapping to SharedTunnelPort
 function convertPortMappingToSharedTunnelPort(mapping: PortMapping, clusterId: string, tunnelId: string): SharedTunnelPort {
@@ -412,7 +413,7 @@ function cleanupConnection(
   
   if (client) {
     client.dispose().catch((error) => {
-      logger.error('Error disconnecting tunnel client:', { error });
+      logger.error('Error disconnecting tunnel client:', { error: extractErrorMessage(error) });
     }).finally(() => {
       logger.info('✅ Clean tunnel connection cleanup completed');
     });

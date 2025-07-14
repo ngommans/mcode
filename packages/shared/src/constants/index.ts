@@ -21,7 +21,7 @@ export const CODESPACE_STATES = {
   SHUTDOWN: 'Shutdown',
   CONNECTED: 'Connected',
   DISCONNECTED: 'Disconnected',
-  STOPPING: 'Stopping',
+  SHUTTING_DOWN: 'ShuttingDown',
 } as const;
 
 export const PORT_LABELS = {

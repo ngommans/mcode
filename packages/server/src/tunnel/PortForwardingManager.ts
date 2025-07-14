@@ -8,6 +8,7 @@ import { TunnelManagementHttpClient } from '@microsoft/dev-tunnels-management';
 import { TunnelAccessScopes } from '@microsoft/dev-tunnels-contracts';
 import type { TunnelProperties } from 'tcode-shared';
 import { logger } from '../utils/logger';
+import { createDetectedPortInfo } from '../utils/typeSafeTunnel.js';
 
 // Interface for accessing internal TunnelRelayTunnelClient properties
 // Note: These are internal properties accessed via casting - use with caution
@@ -199,13 +200,7 @@ class PortForwardingManager {
         const forwardedPorts = client.session.forwardedPorts;
         if (forwardedPorts instanceof Map) {
           for (const [localPort, remoteInfo] of forwardedPorts) {
-            detectedPorts.push({
-              localPort: typeof localPort === 'number' ? localPort : parseInt(localPort, 10),
-              remotePort: remoteInfo.remotePort || remoteInfo.port,
-              protocol: remoteInfo.protocol || 'unknown',
-              isActive: true,
-              source: 'tunnelQuery'
-            });
+            detectedPorts.push(createDetectedPortInfo(localPort, remoteInfo));
           }
         }
       }

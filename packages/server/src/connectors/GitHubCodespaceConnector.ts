@@ -20,6 +20,14 @@ import {
 import { connectToTunnel } from '../tunnel/TunnelModule.js';
 import { Ssh2Connector } from './Ssh2Connector.js';
 import { logger } from '../utils/logger.js';
+import { 
+  parseGitHubResponse, 
+  extractCodespaces, 
+  extractCodespaceState, 
+  extractTunnelProperties,
+  isRetryableState,
+  isCodespaceAvailable 
+} from '../utils/typeSafeGitHub.js';
 import type { CodespaceWebSocketHandler } from '../handlers/CodespaceWebSocketHandler.js';
 
 interface RetryableError extends Error {
@@ -77,9 +85,10 @@ export class GitHubCodespaceConnector implements CodespaceConnector {
           }
 
           try {
-            const result = JSON.parse(data);
-            logger.debug('Codespaces list parsed', { count: result.codespaces?.length || 0 });
-            resolve(result.codespaces || []);
+            const result = parseGitHubResponse(data);
+            const codespaces = extractCodespaces(result);
+            logger.debug('Codespaces list parsed', { count: codespaces.length });
+            resolve(codespaces);
           } catch (error) {
             logger.error('Failed to parse codespaces response', error as Error);
             reject(error);
@@ -124,26 +133,29 @@ export class GitHubCodespaceConnector implements CodespaceConnector {
           }
           
           try {
-            const response = JSON.parse(data);
+            const response = parseGitHubResponse(data);
+            const state = extractCodespaceState(response);
             
             // Check codespace state before attempting connection
-            if (response.state && response.state !== 'Available') {
-              // Handle specific states that might become available
-              if (response.state === 'Starting' || response.state === 'Provisioning') {
-                const retryableError = new Error(`Codespace is ${response.state}. This is normal during initialization - please retry in 30-60 seconds.`);
+            if (!isCodespaceAvailable(response)) {
+              if (state && isRetryableState(state)) {
+                const retryableError = new Error(`Codespace is ${state}. This is normal during initialization - please retry in 30-60 seconds.`);
                 (retryableError as RetryableError).retryable = true;
-                (retryableError as RetryableError).codespaceState = response.state;
-                this.sendCodespaceState(this.ws, codespaceName, response.state);
+                (retryableError as RetryableError).codespaceState = state;
+                this.sendCodespaceState(this.ws, codespaceName, state);
                 return reject(retryableError);
               } else {
-                const error = new Error(`Codespace is not available. Current state: ${response.state}. Please start the codespace first.`);
-                this.sendCodespaceState(this.ws, codespaceName, response.state);
+                const error = new Error(`Codespace is not available. Current state: ${state || 'Unknown'}. Please start the codespace first.`);
+                if (state) {
+                  this.sendCodespaceState(this.ws, codespaceName, state);
+                }
                 return reject(error);
               }
             }
             
-            if (response.connection && response.connection.tunnelProperties) {
-              resolve(response.connection.tunnelProperties);
+            const tunnelProperties = extractTunnelProperties(response);
+            if (tunnelProperties) {
+              resolve(tunnelProperties);
             } else {
               reject(new Error('Tunnel properties not found in response. Codespace may not be ready.'));
             }

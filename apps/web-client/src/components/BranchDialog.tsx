@@ -121,41 +121,41 @@ export function BranchDialog({ isOpen, branchInfo, onClose }: BranchDialogProps)
               Git Status
             </h4>
             <div className="space-y-2">
-              {branchInfo.git_status.ahead !== undefined && (
+              {branchInfo.git_status?.ahead !== undefined && (
                 <div className="flex items-center justify-between">
                   <span className="text-[#aaaaaa] flex items-center gap-1">
                     <i className="codicon codicon-arrow-up text-[#00ff00]"></i>
                     Commits ahead:
                   </span>
-                  <span className="text-[#cccccc] font-mono">{branchInfo.git_status.ahead}</span>
+                  <span className="text-[#cccccc] font-mono">{branchInfo.git_status?.ahead}</span>
                 </div>
               )}
-              {branchInfo.git_status.behind !== undefined && (
+              {branchInfo.git_status?.behind !== undefined && (
                 <div className="flex items-center justify-between">
                   <span className="text-[#aaaaaa] flex items-center gap-1">
                     <i className="codicon codicon-arrow-down text-[#ff6b6b]"></i>
                     Commits behind:
                   </span>
-                  <span className="text-[#cccccc] font-mono">{branchInfo.git_status.behind}</span>
+                  <span className="text-[#cccccc] font-mono">{branchInfo.git_status?.behind}</span>
                 </div>
               )}
-              {branchInfo.git_status.has_uncommitted_changes !== undefined && (
+              {branchInfo.git_status?.has_uncommitted_changes !== undefined && (
                 <div className="flex items-center justify-between">
                   <span className="text-[#aaaaaa]">Uncommitted changes:</span>
                   <span className={`badge badge-outline ${
-                    branchInfo.git_status.has_uncommitted_changes ? 'badge-warning' : 'badge-success'
+                    branchInfo.git_status?.has_uncommitted_changes ? 'badge-warning' : 'badge-success'
                   }`}>
-                    {branchInfo.git_status.has_uncommitted_changes ? 'Yes' : 'No'}
+                    {branchInfo.git_status?.has_uncommitted_changes ? 'Yes' : 'No'}
                   </span>
                 </div>
               )}
-              {branchInfo.git_status.has_unpushed_changes !== undefined && (
+              {branchInfo.git_status?.has_unpushed_changes !== undefined && (
                 <div className="flex items-center justify-between">
                   <span className="text-[#aaaaaa]">Unpushed changes:</span>
                   <span className={`badge badge-outline ${
-                    branchInfo.git_status.has_unpushed_changes ? 'badge-warning' : 'badge-success'
+                    branchInfo.git_status?.has_unpushed_changes ? 'badge-warning' : 'badge-success'
                   }`}>
-                    {branchInfo.git_status.has_unpushed_changes ? 'Yes' : 'No'}
+                    {branchInfo.git_status?.has_unpushed_changes ? 'Yes' : 'No'}
                   </span>
                 </div>
               )}

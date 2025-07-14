@@ -1,3 +1,5 @@
+import { getEnvironmentVariable } from './typeSafeData';
+
 /**
  * Determines the default WebSocket URL for connecting to the tcode server
  * 
@@ -9,7 +11,7 @@
  */
 export function getDefaultWebSocketUrl(): string {
   // Check for environment variable override first
-  const envBackend = import.meta.env.VITE_TCODE_BACKEND;
+  const envBackend = getEnvironmentVariable('VITE_TCODE_BACKEND');
   if (envBackend) {
     return envBackend;
   }

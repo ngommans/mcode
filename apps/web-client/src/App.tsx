@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
-import type { ServerMessage } from 'tcode-shared';
+import type { ServerMessage, Codespace, ForwardedPort } from 'tcode-shared';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
@@ -9,8 +9,37 @@ import { PortsDialog } from './components/PortsDialog';
 import { BranchDialog, type BranchInfo } from './components/BranchDialog';
 import { getAccessiblePortCount } from './utils/portUtils';
 import { getDefaultWebSocketUrl } from './utils/websocket';
+import { parseWebSocketMessage } from './utils/typeSafeData';
 
 type Status = 'connected' | 'disconnected' | 'connecting' | 'error';
+
+function codespaceTobranchInfo(codespace: Codespace): BranchInfo {
+  return {
+    repository: {
+      id: codespace.repository.id,
+      name: codespace.repository.name,
+      full_name: codespace.repository.full_name,
+      html_url: codespace.repository.html_url,
+      fork: false, // Default values since not available in Codespace
+      private: false
+    },
+    git_status: codespace.git_status,
+    last_used_at: codespace.last_used_at,
+    created_at: codespace.created_at,
+    display_name: codespace.display_name,
+    state: codespace.state
+  };
+}
+
+function forwardedPortToPort(forwardedPort: ForwardedPort): import('./utils/portUtils').Port {
+  return {
+    portNumber: forwardedPort.portNumber,
+    protocol: forwardedPort.protocol,
+    urls: forwardedPort.urls,
+    labels: [], // ForwardedPort doesn't have labels
+    accessControl: forwardedPort.accessControl as unknown as Record<string, unknown>
+  };
+}
 
 export function App() {
   const [status, setStatus] = useState<Status>('disconnected');
@@ -22,8 +51,8 @@ export function App() {
   const [authenticationStatus, setAuthenticationStatus] = useState<string>('unauthenticated');
   const [currentCodespace, setCurrentCodespace] = useState<BranchInfo | null>(null);
   const [serverUrl, setServerUrl] = useState(getDefaultWebSocketUrl());
-  const [codespaces, setCodespaces] = useState([]);
-  const [portInfo, setPortInfo] = useState({ ports: [], portCount: 0 });
+  const [codespaces, setCodespaces] = useState<Codespace[]>([]);
+  const [portInfo, setPortInfo] = useState<{ports: import('./utils/portUtils').Port[], portCount: number}>({ ports: [], portCount: 0 });
   const terminalRef = useRef<HTMLDivElement>(null);
   const terminalInstance = useRef<Terminal | null>(null);
   const fitAddonInstance = useRef<FitAddon | null>(null);
@@ -62,7 +91,7 @@ export function App() {
         // Log the first codespace to see available properties
         if (message.data && message.data.length > 0) {
           // Set the first codespace as current for branch dialog data
-          setCurrentCodespace(message.data[0]);
+          setCurrentCodespace(codespaceTobranchInfo(message.data[0]));
         }
         setCodespaces(message.data || []);
         const count = message.data?.length || 0;
@@ -100,7 +129,7 @@ export function App() {
         setStatusText(stateText);
         // Store codespace data for branch dialog
         if (message.codespace_data) {
-          setCurrentCodespace(message.codespace_data);
+          setCurrentCodespace(codespaceTobranchInfo(message.codespace_data as Codespace));
         }
         // Only close modal when fully connected (handled above with timeout)
         if (message.state === 'Connected') {
@@ -111,12 +140,14 @@ export function App() {
         }
         break;
       }
-      case 'port_update':
+      case 'port_update': {
+        const convertedPorts = (message.ports || []).map(forwardedPortToPort);
         setPortInfo({
-          ports: message.ports || [],
-          portCount: getAccessiblePortCount(message.ports || []),
+          ports: convertedPorts,
+          portCount: getAccessiblePortCount(convertedPorts),
         });
         break;
+      }
       default:
         break;
     }
@@ -135,62 +166,6 @@ export function App() {
     }
     socket.current.send(JSON.stringify({ type: 'authenticate', token }));
   }, []);
-
-  const connect = useCallback((serverUrlToConnect: string) => {
-    if (socket.current) {
-      socket.current.close();
-    }
-
-    // Reset manual disconnect flag when starting a new connection
-    isManualDisconnect.current = false;
-    
-    setServerUrl(serverUrlToConnect);
-    setStatus('connecting');
-    setStatusText(`Connecting to ${serverUrlToConnect}...`);
-
-    const newSocket = new WebSocket(serverUrlToConnect);
-
-    newSocket.onopen = () => {
-      setStatus('connected');
-      setStatusText('Connected to server');
-      setConnectionStatus('connected');
-      if (reconnectTimeout.current) {
-        clearTimeout(reconnectTimeout.current);
-        reconnectTimeout.current = null;
-      }
-      reconnectAttempt.current = 0; // Reset attempts on successful connection
-      // Auto-update status after 2 seconds
-      setTimeout(() => {
-        setStatusText('Authenticate with GitHub');
-      }, 2000);
-    };
-
-    newSocket.onmessage = (event) => {
-      try {
-        const message: ServerMessage = JSON.parse(event.data);
-        handleMessage(message);
-      } catch (e) {
-        console.error('Error parsing message:', e);
-      }
-    };
-
-    newSocket.onclose = () => {
-      handleReconnect();
-    };
-
-    newSocket.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      setStatus('error');
-      setStatusText('Connection Error');
-      // Also trigger reconnection on error
-      handleReconnect();
-    };
-
-    socket.current = newSocket;
-  }, [handleMessage, handleReconnect]);
-
-  // Store connect function in ref for handleReconnect to use
-  connectRef.current = connect;
 
   const handleReconnect = useCallback(() => {
     // Don't reconnect if it was a manual disconnect
@@ -221,6 +196,103 @@ export function App() {
     }
   }, [serverUrl]);
 
+  // Store the terminal input disposable to clean up properly
+  const inputDisposable = useRef<{dispose: () => void} | null>(null);
+
+  // Function to set up terminal input handler
+  const setupTerminalInputHandler = useCallback(() => {
+    if (terminalInstance.current && socket.current?.readyState === WebSocket.OPEN) {
+      // Clean up existing handler first
+      if (inputDisposable.current) {
+        inputDisposable.current.dispose();
+      }
+      
+      const disposable = terminalInstance.current.onData((data) => {
+        if (socket.current?.readyState === WebSocket.OPEN) {
+          socket.current.send(JSON.stringify({ type: 'input', data }));
+        }
+      });
+      
+      inputDisposable.current = disposable;
+      return disposable;
+    }
+    return null;
+  }, []);
+
+  // Clean up input handler on unmount
+  useEffect(() => {
+    return () => {
+      if (inputDisposable.current) {
+        inputDisposable.current.dispose();
+        inputDisposable.current = null;
+      }
+    };
+  }, []);
+
+  const connect = useCallback((serverUrlToConnect: string) => {
+    if (socket.current) {
+      socket.current.close();
+    }
+
+    // Reset manual disconnect flag when starting a new connection
+    isManualDisconnect.current = false;
+    
+    setServerUrl(serverUrlToConnect);
+    setStatus('connecting');
+    setStatusText(`Connecting to ${serverUrlToConnect}...`);
+
+    const newSocket = new WebSocket(serverUrlToConnect);
+
+    newSocket.onopen = () => {
+      setStatus('connected');
+      setStatusText('Connected to server');
+      setConnectionStatus('connected');
+      if (reconnectTimeout.current) {
+        clearTimeout(reconnectTimeout.current);
+        reconnectTimeout.current = null;
+      }
+      reconnectAttempt.current = 0; // Reset attempts on successful connection
+      
+      // Set up terminal input handler now that socket is connected
+      setupTerminalInputHandler();
+      
+      // Auto-update status after 2 seconds
+      setTimeout(() => {
+        setStatusText('Authenticate with GitHub');
+      }, 2000);
+    };
+
+    newSocket.onmessage = (event) => {
+      const message = parseWebSocketMessage(event.data);
+      if (message) {
+        handleMessage(message);
+      }
+    };
+
+    newSocket.onclose = () => {
+      // Clean up input handler when socket closes
+      if (inputDisposable.current) {
+        inputDisposable.current.dispose();
+        inputDisposable.current = null;
+      }
+      handleReconnect();
+    };
+
+    newSocket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      setStatus('error');
+      setStatusText('Connection Error');
+      handleReconnect();
+    };
+
+    socket.current = newSocket;
+  }, [handleMessage, handleReconnect, setupTerminalInputHandler]);
+
+  // Store connect function in ref for handleReconnect to use (after connect is defined)
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
+
   const connectToCodespace = useCallback((codespaceName: string) => {
     if (socket.current?.readyState !== WebSocket.OPEN) {
       console.error('Socket not open');
@@ -232,6 +304,12 @@ export function App() {
   const disconnect = useCallback(() => {
     // Set flag to prevent reconnection
     isManualDisconnect.current = true;
+    
+    // Clean up input handler
+    if (inputDisposable.current) {
+      inputDisposable.current.dispose();
+      inputDisposable.current = null;
+    }
     
     if (reconnectTimeout.current) {
       clearTimeout(reconnectTimeout.current);
@@ -259,7 +337,6 @@ export function App() {
           background: '#0f0f0f',
           foreground: '#ffffff',
           cursor: '#ffffff',
-          selection: '#ffffff20',
           black: '#000000',
           red: '#cd3131',
           green: '#0dbc79',
@@ -312,16 +389,6 @@ export function App() {
     }
   }, []);
 
-  useEffect(() => {
-    if (terminalInstance.current && socket.current) {
-      const disposable = terminalInstance.current.onData((data) => {
-        if (socket.current?.readyState === WebSocket.OPEN) {
-          socket.current.send(JSON.stringify({ type: 'input', data }));
-        }
-      });
-      return () => disposable.dispose();
-    }
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -363,7 +430,7 @@ export function App() {
 
   const handleModalConnectCodespace = useCallback((codespaceName: string) => {
     // Find the codespace to get its display name
-    const selectedCodespace = codespaces.find((cs: BranchInfo) => cs.name === codespaceName);
+    const selectedCodespace = codespaces.find((cs: Codespace) => cs.name === codespaceName);
     const displayName = selectedCodespace?.display_name || selectedCodespace?.repository?.full_name || codespaceName;
     setStatusText(`Opening codespace ${displayName}...`);
     connectToCodespace(codespaceName);
@@ -428,7 +495,7 @@ export function App() {
       />
       <BranchDialog
         isOpen={isBranchDialogOpen}
-        branchInfo={currentCodespace}
+        branchInfo={currentCodespace ?? undefined}
         onClose={handleBranchDialogClose}
       />
       <div ref={terminalRef} id="terminal-container" style={{ flexGrow: 1, padding: '0 10px' }}></div>

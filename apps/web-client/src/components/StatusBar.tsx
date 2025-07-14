@@ -69,7 +69,7 @@ export function StatusBar({
           }}
         >
           <i 
-            className={`codicon ${config.icon}${config.spin ? ' animate-spin' : ''}`}
+            className={`codicon ${config.icon}${(config as {spin?: boolean}).spin ? ' animate-spin' : ''}`}
             style={{ color: config.iconColor }}
           ></i>
           <span>{displayText}</span>
