@@ -32,7 +32,8 @@
     "clean": "npm run clean --workspaces --if-present && rimraf node_modules",
     "depcheck": "npm exec --workspaces -- depcheck",
     "deps:audit": "npm audit",
-    "check-updates": "npx npm-check-updates"
+    "check-updates": "npx npm-check-updates",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",
