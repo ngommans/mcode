@@ -54,7 +54,7 @@ export class PortConverter {
       protocol: port.protocol,
       urls: port.portForwardingUris || [],
       accessControl: port.accessControl,
-      isUserPort
+      isUserPort,
     };
   }
 
@@ -62,10 +62,10 @@ export class PortConverter {
    * Convert multiple TunnelPorts to ForwardedPorts
    */
   static tunnelArrayToForwarded(ports: TunnelPort[], userPorts: TunnelPort[]): ForwardedPort[] {
-    return ports.map(port => 
+    return ports.map((port) =>
       this.tunnelToForwarded(
-        port, 
-        userPorts.some(up => up.portNumber === port.portNumber)
+        port,
+        userPorts.some((up) => up.portNumber === port.portNumber)
       )
     );
   }
@@ -81,11 +81,11 @@ export class PortConverter {
     error?: string;
   }): WebSocketPortInformation {
     return {
-      userPorts: portInfo.userPorts.map(port => this.tunnelToForwarded(port, true)),
-      managementPorts: portInfo.managementPorts.map(port => this.tunnelToForwarded(port, false)),
+      userPorts: portInfo.userPorts.map((port) => this.tunnelToForwarded(port, true)),
+      managementPorts: portInfo.managementPorts.map((port) => this.tunnelToForwarded(port, false)),
       allPorts: this.tunnelArrayToForwarded(portInfo.allPorts, portInfo.userPorts),
       timestamp: portInfo.timestamp,
-      error: portInfo.error
+      error: portInfo.error,
     };
   }
 
@@ -94,10 +94,13 @@ export class PortConverter {
    */
   static filterUserPorts(ports?: TunnelPort[] | null): TunnelPort[] {
     if (!ports) return [];
-    
-    return ports.filter(port => 
-      port && port.portNumber && (port.labels?.includes('UserForwardedPort')
-      || (!port.labels?.includes('InternalPort') && port.portNumber !== 22))
+
+    return ports.filter(
+      (port) =>
+        port &&
+        port.portNumber &&
+        (port.labels?.includes('UserForwardedPort') ||
+          (!port.labels?.includes('InternalPort') && port.portNumber !== 22))
     );
   }
 
@@ -106,10 +109,10 @@ export class PortConverter {
    */
   static filterManagementPorts(ports?: TunnelPort[] | null): TunnelPort[] {
     if (!ports) return [];
-    
-    return ports.filter(port => 
-      port && port.portNumber 
-      && (port.labels?.includes('InternalPort') || port.portNumber !== 22)
+
+    return ports.filter(
+      (port) =>
+        port && port.portNumber && (port.labels?.includes('InternalPort') || port.portNumber !== 22)
     );
   }
 }
@@ -131,6 +134,3 @@ export interface PortInformation {
   timestamp?: string;
   error?: string;
 }
-
-// Backwards compatibility alias
-export interface PortInfo extends PortInformation {}

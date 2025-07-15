@@ -157,7 +157,6 @@ export type ClientMessage =
 // #endregion
 // =================================================================
 
-
 // =================================================================
 // #region Server to Client Messages
 // =================================================================
@@ -265,7 +264,6 @@ export type ServerMessage =
 // #endregion
 // =================================================================
 
-
 export type WebSocketMessage = ClientMessage | ServerMessage;
 
 // =================================================================
@@ -285,6 +283,7 @@ export type CodespaceState = GitHubCodespaceState | 'Connected' | 'Disconnected'
  * Represents a GitHub Codespace, containing its metadata and status.
  * Based on the official GitHub REST API schema.
  */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- Justified: Estensibility - mirrors (today) GitHub API schema
 export interface Codespace extends GitHubCodespace {
   // All properties inherited from GitHubCodespace
   // This ensures we stay in sync with the official API

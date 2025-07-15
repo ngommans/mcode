@@ -25,7 +25,7 @@ export function ConnectionModal({
   connectionStatus,
   authenticationStatus,
   statusText,
-}: ConnectionModalProps): VNode {
+}: ConnectionModalProps): VNode | null {
   const [serverUrl, setServerUrl] = useState(getDefaultWebSocketUrl());
   const [githubToken, setGithubToken] = useState('');
   const [isServerUrlProvided, setIsServerUrlProvided] = useState(true);
@@ -57,7 +57,6 @@ export function ConnectionModal({
   };
 
   if (!isOpen) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- null is safe return for conditional rendering
     return null;
   }
 

@@ -4,13 +4,13 @@
  */
 
 import WebSocket from 'ws';
-import { 
-  MESSAGE_TYPES, 
+import {
+  MESSAGE_TYPES,
   isWebSocketMessage,
   PortConverter,
   type WebSocketMessage,
   type TcodeWebSocket,
-  type ServerMessage
+  type ServerMessage,
 } from 'tcode-shared';
 import { GitHubCodespaceConnector } from '../connectors/GitHubCodespaceConnector.js';
 import { logger } from '../utils/logger.js';
@@ -22,6 +22,32 @@ export interface ServerOptions {
 }
 
 export class CodespaceWebSocketHandler {
+  /**
+   * Safely convert WebSocket.RawData to string
+   * Handles Buffer, ArrayBuffer, and Buffer[] types properly
+   */
+  private convertWebSocketDataToString(data: WebSocket.RawData): string {
+    if (Buffer.isBuffer(data)) {
+      return data.toString('utf8');
+    }
+
+    if (data instanceof ArrayBuffer) {
+      return Buffer.from(data).toString('utf8');
+    }
+
+    if (Array.isArray(data)) {
+      // Handle Buffer[] - concatenate all buffers
+      return Buffer.concat(data).toString('utf8');
+    }
+
+    // This should not happen with proper WebSocket.RawData types
+    // but provides a fallback that won't produce [object Object]
+    if (typeof data === 'string') {
+      return data;
+    }
+
+    throw new Error(`Unsupported WebSocket data type: ${typeof data}`);
+  }
 
   /**
    * Handle new WebSocket connection
@@ -29,7 +55,7 @@ export class CodespaceWebSocketHandler {
    */
   handleConnection = (ws: TcodeWebSocket): void => {
     logger.info('New client connected');
-    
+
     // Initialize connection state
     ws.connector = undefined;
     ws.terminalConnection = undefined;
@@ -38,11 +64,14 @@ export class CodespaceWebSocketHandler {
     ws.on('message', (data: WebSocket.RawData) => {
       void (async () => {
         try {
-          const messageText = Buffer.isBuffer(data) ? data.toString('utf8') : String(data);
+          const messageText = this.convertWebSocketDataToString(data);
           const message = JSON.parse(messageText) as WebSocketMessage;
           await this.handleMessage(ws, message);
         } catch (error) {
-          logger.error('Error handling message', error instanceof Error ? error : new Error(String(error)));
+          logger.error(
+            'Error handling message',
+            error instanceof Error ? error : new Error(String(error))
+          );
           this.sendError(ws, error instanceof Error ? error.message : String(error));
         }
       })();
@@ -51,12 +80,12 @@ export class CodespaceWebSocketHandler {
     ws.on('close', () => {
       void (async () => {
         logger.info('Client disconnected');
-        
+
         // Mark RPC connection as disconnected to start grace period
         if (ws.rpcConnection) {
           ws.rpcConnection.markAsDisconnected();
         }
-        
+
         await this.cleanup(ws);
       })();
     });
@@ -81,35 +110,35 @@ export class CodespaceWebSocketHandler {
         case MESSAGE_TYPES.AUTHENTICATE:
           this.handleAuthenticate(ws, message as { token: string });
           break;
-          
+
         case MESSAGE_TYPES.LIST_CODESPACES:
           await this.handleListCodespaces(ws);
           break;
-          
+
         case MESSAGE_TYPES.CONNECT_CODESPACE:
           await this.handleConnectCodespace(ws, message as { codespace_name: string });
           break;
-          
+
         case MESSAGE_TYPES.DISCONNECT_CODESPACE:
           await this.handleDisconnectCodespace(ws);
           break;
-          
+
         case MESSAGE_TYPES.INPUT:
           this.handleInput(ws, message as { data: string });
           break;
-          
+
         case MESSAGE_TYPES.RESIZE:
           this.handleResize(ws, message as { cols: number; rows: number });
           break;
-          
+
         case MESSAGE_TYPES.GET_PORT_INFO:
           await this.handleGetPortInfo(ws);
           break;
-          
+
         case MESSAGE_TYPES.REFRESH_PORTS:
           await this.handleRefreshPorts(ws);
           break;
-          
+
         default:
           logger.warn('Unknown message type', { type: message.type });
           break;
@@ -124,7 +153,7 @@ export class CodespaceWebSocketHandler {
     ws.connector = new GitHubCodespaceConnector(message.token, ws, this);
     this.sendMessage(ws, {
       type: MESSAGE_TYPES.AUTHENTICATED,
-      success: true
+      success: true,
     });
   }
 
@@ -136,11 +165,14 @@ export class CodespaceWebSocketHandler {
     const codespaces = await ws.connector.listCodespaces();
     this.sendMessage(ws, {
       type: MESSAGE_TYPES.CODESPACES_LIST,
-      data: codespaces
+      data: codespaces,
     });
   }
 
-  private async handleConnectCodespace(ws: TcodeWebSocket, message: { codespace_name: string }): Promise<void> {
+  private async handleConnectCodespace(
+    ws: TcodeWebSocket,
+    message: { codespace_name: string }
+  ): Promise<void> {
     if (!ws.connector) {
       throw new Error('Not authenticated. Please send an authenticate message first.');
     }
@@ -155,12 +187,12 @@ export class CodespaceWebSocketHandler {
       (data: string) => {
         this.sendMessage(ws, {
           type: MESSAGE_TYPES.OUTPUT,
-          data: data
+          data: data,
         });
       },
       ws
     );
-    
+
     ws.codespaceName = message.codespace_name;
   }
 
@@ -168,17 +200,17 @@ export class CodespaceWebSocketHandler {
     if (ws.terminalConnection) {
       ws.terminalConnection.close();
       ws.terminalConnection = undefined;
-      
+
       if (ws.tunnelConnection) {
         logger.info('Disposing of tunnel connection on disconnect');
         await ws.tunnelConnection.close();
         ws.tunnelConnection = undefined;
       }
-      
+
       if (ws.codespaceName && ws.connector) {
         ws.connector.sendCodespaceState(ws, ws.codespaceName, 'Shutdown');
       }
-      
+
       this.sendMessage(ws, { type: MESSAGE_TYPES.DISCONNECTED_FROM_CODESPACE });
     }
   }
@@ -201,13 +233,13 @@ export class CodespaceWebSocketHandler {
     }
 
     const portInfo = await ws.connector.refreshPortInformation(ws);
-    
+
     // Use PortConverter to eliminate manual mapping and casting
     const webSocketPortInfo = PortConverter.createWebSocketPortInfo(portInfo);
-    
+
     this.sendMessage(ws, {
       type: MESSAGE_TYPES.PORT_INFO_RESPONSE,
-      portInfo: webSocketPortInfo
+      portInfo: webSocketPortInfo,
     });
   }
 
@@ -229,14 +261,16 @@ export class CodespaceWebSocketHandler {
           logger.error('Error closing terminal connection', error as Error);
         }
       }
-      
+
       // Don't immediately close RPC connection - let grace period handle it
       // The RPC connection will auto-cleanup after the grace period expires
       if (ws.rpcConnection) {
-        logger.info('RPC connection entering grace period - will auto-cleanup if client doesn\'t reconnect');
+        logger.info(
+          "RPC connection entering grace period - will auto-cleanup if client doesn't reconnect"
+        );
         // Don't set to undefined yet - keep reference for potential reconnection
       }
-      
+
       // Dispose tunnel connection wrapper or client last
       if (ws.tunnelConnection) {
         logger.info('Disposing of tunnel connection on WebSocket close');
@@ -247,11 +281,10 @@ export class CodespaceWebSocketHandler {
         }
         ws.tunnelConnection = undefined;
       }
-      
+
       // Clear all tunnel-related properties
       ws.portInfo = undefined;
       ws.endpointInfo = undefined;
-      
     } catch (error) {
       logger.error('Error during WebSocket cleanup', error as Error);
     }
@@ -266,7 +299,7 @@ export class CodespaceWebSocketHandler {
   sendError(ws: WebSocket, error: string): void {
     this.sendMessage(ws, {
       type: MESSAGE_TYPES.ERROR,
-      message: error
+      message: error,
     });
   }
 }

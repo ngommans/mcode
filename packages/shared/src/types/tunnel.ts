@@ -30,10 +30,7 @@ export interface EndpointInfo {
   tunnelUri: string;
 }
 
-// Port types moved to ./port.ts for unified hierarchy
-// Re-export for backwards compatibility
-export type { TunnelPort, PortInformation, PortInfo } from './port.js';
-import type { PortInformation, PortInfo } from './port.js';
+import type { PortInformation } from './port.js';
 import type { TunnelClient, TunnelManagementClient, RpcConnection } from './external.js';
 
 export interface TunnelConnection {
@@ -64,7 +61,7 @@ export interface TunnelConnectionResult {
   sshPort?: number;
   client?: TunnelClient; // TunnelRelayTunnelClient
   tunnelConnection?: TunnelConnection;
-  portInfo: PortInfo;
+  portInfo: PortInformation;
   endpointInfo?: EndpointInfo | null;
   tunnelManagementClient?: TunnelManagementClient;
   rpcConnection?: RpcConnection;
