@@ -7,6 +7,7 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['test/setup-vitest.ts'],
+    watch: false,
     coverage: {
       // Only include source files in coverage reports
       include: ['packages/**/src/**/*.{js,jsx,ts,tsx}'],
