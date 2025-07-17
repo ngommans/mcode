@@ -1,28 +1,122 @@
 /* apps/web-client/src/styles/main.css */
 
 /* Import VS Code codicons */
-@import url('https://cdn.jsdelivr.net/npm/@vscode/codicons@0.0.36/dist/codicon.css');
+@import url('https://cdn.jsdelivr.net/npm/@vscode/codicons@0.0.36/dist/codicon.css')
+layer(base);
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-/* Custom base styles (can be moved to @tailwind base later if needed) */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@plugin "daisyui";
+
+@plugin "daisyui/theme" {
+  name: "vscode";
+  default: true;
+  color-scheme: dark;
+
+  /* DaisyUI theme variables aligned with VS Code "Dark Modern" */
+  --color-primary: #0078d4; /* VS Code Accent */
+  --color-primary-focus: #005a9e;
+  --color-primary-content: #ffffff;
+
+  --color-secondary: #2b2b2b; /* VS Code Activity Bar Border */
+  --color-secondary-focus: #404040;
+  --color-secondary-content: #d7d7d7;
+
+  --color-accent: #0078d4;
+  --color-accent-focus: #005a9e;
+  --color-accent-content: #ffffff;
+
+  --color-neutral: #181818; /* VS Code Activity Bar Background */
+  --color-neutral-focus: #2b2b2b;
+  --color-neutral-content: #d7d7d7;
+
+  --color-base-100: #1e1e1e; /* VS Code Editor Background */
+  --color-base-200: #2b2b2b;
+  --color-base-300: #404040;
+  --color-base-content: #d7d7d7; /* VS Code Foreground */
+
+  --color-info: #2a2a2a;
+  --color-info-content: #d7d7d7;
+
+  --color-success: #3fb950;
+  --color-success-content: #ffffff;
+
+  --color-warning: #ddb624;
+  --color-warning-content: #181818;
+
+  --color-error: #f44747;
+  --color-error-content: #ffffff;
 }
 
-html, body {
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
+@plugin "daisyui/theme" {
+  name: "vscode-light";
+  color-scheme: light;
+
+  /* DaisyUI theme variables aligned with VS Code "Light Modern" */
+  --color-primary: #005fb8; /* VS Code Accent Light */
+  --color-primary-focus: #004578;
+  --color-primary-content: #ffffff;
+
+  --color-secondary: #e1e1e1; /* VS Code Activity Bar Border Light */
+  --color-secondary-focus: #cccccc;
+  --color-secondary-content: #424242;
+
+  --color-accent: #005fb8;
+  --color-accent-focus: #004578;
+  --color-accent-content: #ffffff;
+
+  --color-neutral: #f8f8f8; /* VS Code Activity Bar Background Light */
+  --color-neutral-focus: #e1e1e1;
+  --color-neutral-content: #424242;
+
+  --color-base-100: #ffffff; /* VS Code Editor Background Light */
+  --color-base-200: #f8f8f8;
+  --color-base-300: #e1e1e1;
+  --color-base-content: #424242; /* VS Code Foreground Light */
+
+  --color-info: #f0f0f0;
+  --color-info-content: #424242;
+
+  --color-success: #28a745;
+  --color-success-content: #ffffff;
+
+  --color-warning: #ffc107;
+  --color-warning-content: #212529;
+
+  --color-error: #dc3545;
+  --color-error-content: #ffffff;
 }
 
-body {
-  background-color: #0f0f0f;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    background-color: var(--color-neutral);
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  }
 }
 
 #app {
