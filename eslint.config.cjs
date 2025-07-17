@@ -134,4 +134,9 @@ module.exports = defineConfig([{
         "@typescript-eslint/no-unsafe-return": "warn",
         "no-console": "off",
     },
+}, {
+    files: ['packages/standalone/src/server.ts'],
+    rules: {
+      'no-console': ['error', { allow: ['warn', 'error', 'info'] }],
+    },
 }]);

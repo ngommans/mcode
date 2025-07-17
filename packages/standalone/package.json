@@ -16,7 +16,11 @@
     "copy:static": "mkdir -p ./static && cp -r ../../apps/web-client/dist/* ./static/",
     "prebuild": "npm run copy:static",
     "start": "dotenv -e ../../.env -- node dist/server.js",
-    "dev": "dotenv -e ../../.env -- tsx watch src/server.ts"
+    "dev": "dotenv -e ../../.env -- tsx watch src/server.ts",
+    "clean": "rimraf dist",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts,.tsx",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix"
   },
   "dependencies": {
     "express": "^4.21.2",
