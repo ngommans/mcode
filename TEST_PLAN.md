@@ -6,10 +6,10 @@
 ## 1. Current Context
 - Monorepo managed with **npm workspaces**
 - TypeScript everywhere (`apps/node-server`, `apps/web-client`, `packages/*`)
-- **Jest** scaffolding already present for basic unit tests
+- **Vitest** scaffolding already present for basic unit tests
 
 Limitations found:
-1. Jest configuration duplicated per-package, slow in monorepo mode
+1. Vitest configuration duplicated per-package, slow in monorepo mode
 2. No browser-level tests – UI logic is untested
 3. No systematic mocking for external services (SSH, GitHub CLI, WebSocket tunnelling)
 4. Coverage < 20 %
@@ -308,3 +308,108 @@ The Implementation Plan & CI workflow are approved. Action items:
 
 ---
 *Prepared 2025-07-05*
+
+---
+## 11. Detailed Unit & Mock Test Plan for `packages/shared` and `packages/server`
+
+### 11.1 Coverage Targets
+| Package | Statements | Branches | Lines |
+|---------|------------|----------|-------|
+| packages/shared | **85 %** | 75 % | 85 % |
+| packages/server | **80 %** | 70 % | 80 % |
+
+Vitest will enforce the above thresholds via `coverage.threshold` in `vitest.config.ts`.
+
+### 11.2 Directory Layout for Tests & Fixtures
+```
+packages/
+  shared/
+    __tests__/           # <-– new – unit tests live here
+      utils/
+      types/
+    fixtures/            # sample JSON / binary data for shared tests
+
+  server/
+    __tests__/
+      connectors/
+      handlers/
+      rpc/
+      tunnel/
+    mocks/               # service mocks & spies (nock/MSW stubs)
+
+test/
+  global-mocks.ts        # CLI & process-level mocks reused across packages
+  fixtures/              # cross-package data (e.g. websocket frames)
+```
+
+*Rationale*: colocating `__tests__` near source improves discoverability, while heavy-weight or reused mocks stay under `test/`.
+
+### 11.3 Module Inventory & Suggested Test Cases
+
+#### packages/shared
+| Path | Responsibility | Suggested Tests |
+|------|---------------|-----------------|
+| `utils/index.ts` | General helpers (e.g., `debounce`, `retry`) | 1. Verify behaviour under edge cases (timeouts, max attempts).<br>2. Ensure pure functions return identical output for same input (snapshot/parametrised). |
+| `types/server.ts` | Runtime type guards / serializers | 1. Valid vs invalid payloads pass/fail guards.<br>2. Round-trip `encode → decode` preserves data. |
+| `types/tunnel.ts` | Tunnel message schema | 1. Exhaustive enum mapping tests.<br>2. Ensure unknown message kind throws meaningful error. |
+| `constants/*` | Static config | 1. Export immutability (freeze). |
+
+#### packages/server
+| Path | Responsibility | Suggested Tests | External Mocks |
+|------|---------------|-----------------|----------------|
+| `connectors/GitHubCodespaceConnector.ts` | Spawn `gh` CLI, poll Codespace API | 1. Happy path – returns connection info.<br>2. Error path – CLI exits non-zero.<br>3. Retry/back-off logic | `execa` mocked with `vitest-mock-process` or `vi.mock('execa')` |
+| `handlers/CodespaceWebSocketHandler.ts` | Translate WS frames ⇄ SSH streams | 1. Correctly routes `stdin`→SSH.<br>2. Broadcasts `stdout` frames.<br>3. Graceful close on client disconnect | `ssh2` library mocked; WS stub via `ws` package in-memory server |
+| `rpc/*` | Thin RPC facades | 1. Each method validates input & returns expected DTO.<br>2. Unauthorized access returns 401. | `nock` HTTP mocks |
+| `tunnel/*` | State machines for port forwarding | 1. State transitions on events.<br>2. Timeout cancellation.<br>3. Unreachable host error handling | none (pure) |
+| `utils/logger.ts` | Winston pino wrapper | 1. Log level gating.<br>2. Ensure metadata formatting stable. | `vi.spyOn(console, ...)` |
+
+### 11.4 Mocking Strategy
+1. **Process/CLI** – use `vitest-mock-process` to stub `spawn`, capturing stdout/stderr streams.
+2. **HTTP** – `nock` intercepts GitHub REST calls; fixtures under `packages/server/mocks` provide canonical responses.
+3. **WebSocket** – In-memory WS server (`ws` package) with deterministic frame script from `test/fixtures/websocket-frames.ndjson`.
+4. **SSH** – Mock `ssh2` Client with `vi.fn()` stubs for `exec`, `shell`.
+
+> All mocks must assert *expectations* (number of calls, payload shape) to guard against drift.
+
+### 11.5 Sample Data & Fixture Guidelines
+* JSON fixtures should mirror actual GitHub API payloads (trimmed but structurally identical).
+* WS frame dumps captured from a live session (see Section 8.2) and converted to `ndjson`.
+* Prefer small, focused fixtures; large blobs (>2 KB) belong under `test/fixtures/raw/`.
+
+### 11.6 Test Naming & Tags
+Use file pattern `*.spec.ts` and tag unit vs integration via Vitest `test.runIf()` helpers:
+```ts
+import { test } from 'vitest';
+test.runIf(process.env.TEST_LEVEL === 'unit')('connects without auth', () => { ... });
+```
+The CI matrix sets `TEST_LEVEL=unit` for fast feedback; full suite (unit+integration) runs on `main` nightly.
+
+### 11.7 CI Pipeline Hooks
+1. **Pre-commit** – `lint-staged` runs `vitest --changed`.
+2. **Pull Request** – `vitest --coverage` must satisfy thresholds; Codecov status check blocks merge if below.
+3. **Nightly** – matrix job executes with real gh/ssh to surface integration failures (future phase).
+
+### 11.8 Roll-out Steps
+1. Scaffold directory layout above and commit placeholder tests (`expect(true).toBe(true)`).
+2. Implement tests for `packages/shared/utils` and reach 50 %+ shared coverage.
+3. Add mocks & tests for `GitHubCodespaceConnector` focusing on success/failure paths.
+4. Iterate across remaining modules, leveraging coverage report heat-maps to prioritise.
+5. Aim to land >80 % combined coverage before starting integration test phase.
+
+### 11.9 Running Shared Package Tests
+Run only the shared package tests during development for faster feedback:
+```bash
+# From repo root
+npx vitest run --packages packages/shared --coverage
+```
+The `--packages` flag (Vitest projects mode) limits execution to tests inside `packages/shared`. CI will still execute the full monorepo suite.
+
+### 11.10 Known TODOs (first pass)
+| File | Line / Context | Description |
+|------|----------------|-------------|
+| `packages/shared/__tests__/types/port.spec.ts` | `accessControl` stub | Provide real `AccessControlConfig` example when schema finalised. |
+| `packages/shared/__tests__/types/port.spec.ts` | `createWebSocketPortInfo` tests | Add cases once consumer code stabilises and timestamp/error semantics are clear. |
+| `packages/shared/__tests__/utils/index.spec.ts` | `DummyWsMessage` type | Replace with actual `WebSocketMessage` once exported generics are available. |
+
+Track and resolve these TODOs in the next pass to further improve coverage.
+

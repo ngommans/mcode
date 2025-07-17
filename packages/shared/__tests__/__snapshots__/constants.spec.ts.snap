@@ -1,0 +1,72 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`shared constants snapshot > exports match snapshot 1`] = `
+{
+  "CODESPACE_STATES": {
+    "AVAILABLE": "Available",
+    "CONNECTED": "Connected",
+    "DISCONNECTED": "Disconnected",
+    "SHUTDOWN": "Shutdown",
+    "SHUTTING_DOWN": "ShuttingDown",
+    "STARTING": "Starting",
+  },
+  "DEFAULT_PORTS": {
+    "CLIENT_DEV": 8080,
+    "SERVER": 3001,
+    "SSH": 22,
+  },
+  "GITHUB_API": {
+    "BASE_URL": "https://api.github.com",
+    "REQUIRED_SCOPES": [
+      "codespace",
+    ],
+    "USER_AGENT": "MinimalTerminalClient/1.0",
+  },
+  "MESSAGE_TYPES": {
+    "AUTHENTICATE": "authenticate",
+    "AUTHENTICATED": "authenticated",
+    "CODESPACES_LIST": "codespaces_list",
+    "CODESPACE_CONNECTION_STATUS": "codespace_connection_status",
+    "CODESPACE_STATE": "codespace_state",
+    "CONNECT_CODESPACE": "connect_codespace",
+    "CONNECT_TO_REPO_CODESPACE": "connect_to_repo_codespace",
+    "DISCONNECTED_FROM_CODESPACE": "disconnected_from_codespace",
+    "DISCONNECT_CODESPACE": "disconnect_codespace",
+    "ERROR": "error",
+    "GET_PORT_INFO": "get_port_info",
+    "INPUT": "input",
+    "LIST_CODESPACES": "list_codespaces",
+    "OUTPUT": "output",
+    "PORT_INFO_RESPONSE": "port_info_response",
+    "PORT_UPDATE": "port_update",
+    "QUERY_CODESPACE_STATUS": "query_codespace_status",
+    "REFRESH_PORTS": "refresh_ports",
+    "RESIZE": "resize",
+    "SEND_INITIAL_COMMAND": "send_initial_command",
+    "START_CODESPACE": "start_codespace",
+    "STOP_CODESPACE": "stop_codespace",
+  },
+  "PORT_LABELS": {
+    "INTERNAL": "InternalPort",
+    "USER_FORWARDED": "UserForwardedPort",
+  },
+  "RECONNECT_DEFAULTS": {
+    "BACKOFF_FACTOR": 1.5,
+    "DELAY_MS": 2000,
+    "MAX_ATTEMPTS": 5,
+  },
+  "TERMINAL_DEFAULTS": {
+    "COLS": 80,
+    "FONT_FAMILY": "Monaco, Menlo, "Ubuntu Mono", monospace",
+    "FONT_SIZE": 14,
+    "LINE_HEIGHT": 1.2,
+    "ROWS": 24,
+  },
+  "WEBSOCKET_EVENTS": {
+    "CLOSE": "close",
+    "ERROR": "error",
+    "MESSAGE": "message",
+    "OPEN": "open",
+  },
+}
+`;
