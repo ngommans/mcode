@@ -64,24 +64,24 @@ export function ConnectionModal({
   return (
     <div className="modal modal-open" onClick={onClose}>
       <div
-        className="modal-box w-11/12 max-w-2xl bg-[#1e1e1e] border border-[#333]"
+        className="modal-box w-11/12 max-w-2xl bg-base-100 border border-neutral-focus"
         onClick={(e: JSX.TargetedMouseEvent<HTMLDivElement>) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="modal-header bg-[#2d2d2d] p-4 rounded-t-lg -mx-6 -mt-6 mb-4">
+        <div className="modal-header bg-base-200 p-4 rounded-t-lg -mx-6 -mt-6 mb-4">
           <h3 className="font-bold text-lg text-white">Connect to Remote Terminal</h3>
         </div>
 
         {/* Body */}
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 px-6">
           <div className="flex justify-between items-center gap-2">
             <label className="label whitespace-nowrap">
-              <span className="label-text text-[#cccccc] font-medium">1. Connect to Server</span>
+              <span className="label-text text-base-content/80 font-medium">1. Connect to Server</span>
             </label>
             <div className="flex items-center gap-2 w-full">
               <input
                 type="text"
-                className="input input-bordered w-full bg-[#2d2d2d] border-[#444] text-[#cccccc] focus:border-[#007acc] focus:ring-2 focus:ring-[#007acc]/20"
+                className="input input-bordered w-full bg-base-200 border-neutral-focus text-base-content/80 focus:border-accent focus:ring-2 focus:ring-accent/20"
                 value={serverUrl}
                 onInput={(e: JSX.TargetedEvent<HTMLInputElement>) =>
                   setServerUrl((e.target as HTMLInputElement).value)
@@ -92,8 +92,8 @@ export function ConnectionModal({
                 onClick={handleConnect}
                 className={`btn border-none ${
                   connectionStatus === 'connected'
-                    ? 'btn-success bg-[#00ff00] text-black'
-                    : 'btn-primary bg-[#007acc] hover:bg-[#005a9e]'
+                    ? 'btn-success bg-success-bright text-black'
+                    : 'btn-primary'
                 }`}
                 disabled={connectionStatus === 'connected'}
               >
@@ -111,12 +111,12 @@ export function ConnectionModal({
 
           <div className="flex justify-between items-center gap-2">
             <label className="label whitespace-nowrap">
-              <span className="label-text text-[#cccccc] font-medium">2. Authenticate</span>
+              <span className="label-text text-base-content/80 font-medium">2. Authenticate</span>
             </label>
             <div className="flex items-center gap-2 w-full">
               <input
                 type="password"
-                className="input input-bordered w-full bg-[#2d2d2d] border-[#444] text-[#cccccc] focus:border-[#007acc] focus:ring-2 focus:ring-[#007acc]/20 disabled:opacity-50"
+                className="input input-bordered w-full bg-base-200 border-neutral-focus text-base-content/80 focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-50"
                 value={githubToken}
                 onInput={(e: JSX.TargetedEvent<HTMLInputElement>) =>
                   setGithubToken((e.target as HTMLInputElement).value)
@@ -128,10 +128,10 @@ export function ConnectionModal({
                 onClick={handleAuthenticate}
                 className={`btn border-none disabled:opacity-50 ${
                   authenticationStatus === 'authenticated'
-                    ? 'btn-success bg-[#00ff00] text-black'
+                    ? 'btn-success bg-success-bright text-black'
                     : connectionStatus === 'connected'
-                      ? 'btn-primary bg-[#007acc] hover:bg-[#005a9e]'
-                      : 'btn-secondary bg-[#2d2d2d] border-[#444] text-[#cccccc] hover:bg-[#404040]'
+                      ? 'btn-primary'
+                      : 'btn-secondary'
                 }`}
                 disabled={!isServerUrlProvided || authenticationStatus === 'authenticated'}
               >
@@ -150,20 +150,20 @@ export function ConnectionModal({
           {codespaces.length > 0 && (
             <div className="flex flex-col gap-2">
               <label className="label">
-                <span className="label-text text-[#cccccc] font-medium">3. Select Codespace</span>
+                <span className="label-text text-base-content/80 font-medium">3. Select Codespace</span>
               </label>
-              <div className="border border-[#444] rounded-lg max-h-48 overflow-y-auto bg-[#2d2d2d]">
+              <div className="border border-neutral-focus rounded-lg max-h-48 overflow-y-auto bg-base-200">
                 {codespaces.map((codespace) => (
                   // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- Preact JSX elements in map are properly typed
                   <div
                     key={codespace.name}
-                    className="flex items-center justify-between p-3 hover:bg-[#404040] border-b border-[#333] last:border-b-0"
+                    className="flex items-center justify-between p-3 hover:bg-base-300 border-b border-neutral-focus last:border-b-0"
                   >
                     <div className="flex flex-col">
-                      <div className="text-[#cccccc] font-medium">
+                      <div className="text-base-content/80 font-medium">
                         {codespace.display_name ?? codespace.repository.full_name}
                       </div>
-                      <div className="text-xs text-[#aaaaaa]">{codespace.repository.full_name}</div>
+                      <div className="text-xs text-tertiary">{codespace.repository.full_name}</div>
                     </div>
                     <div className="flex items-center gap-2">
                       <div
@@ -179,7 +179,7 @@ export function ConnectionModal({
                       </div>
                       <button
                         onClick={() => handleCodespaceClick(codespace)}
-                        className="btn btn-sm btn-primary bg-[#007acc] hover:bg-[#005a9e] border-none"
+                        className="btn btn-sm btn-primary"
                       >
                         Open
                       </button>
@@ -190,21 +190,21 @@ export function ConnectionModal({
             </div>
           )}
 
-          <div className="alert bg-[#2d2d2d] border-[#444] text-[#cccccc]">
+          <div className="alert bg-base-200 border-neutral-focus text-base-content/80">
             <div>
               <h3 className="font-medium flex items-center gap-2">
                 Status
                 {(statusText?.includes('Connecting') ||
                   statusText?.includes('Starting') ||
                   statusText?.includes('Unavailable')) && (
-                  <i className="codicon codicon-sync animate-spin text-[#ffd43b]"></i>
+                  <i className="codicon codicon-sync animate-spin text-warning"></i>
                 )}
               </h3>
               <div className="text-sm">
                 {statusText?.includes('Connecting') ||
                 statusText?.includes('Starting') ||
                 statusText?.includes('Unavailable') ? (
-                  <span className="text-[#ffd43b]">{statusText}</span>
+                  <span className="text-warning">{statusText}</span>
                 ) : connectionStatus === 'connected' ? (
                   authenticationStatus === 'authenticated' ? (
                     codespaces.length > 0 ? (
@@ -224,10 +224,10 @@ export function ConnectionModal({
         </div>
 
         {/* Footer */}
-        <div className="modal-action bg-[#2d2d2d] p-4 rounded-b-lg -mx-6 -mb-6 mt-4">
+        <div className="modal-action bg-base-200 p-4 rounded-b-lg -mx-6 -mb-6 mt-4">
           <button
             onClick={onClose}
-            className="btn btn-ghost text-[#cccccc] hover:bg-[#404040]"
+            className="btn btn-ghost"
             disabled={
               statusText?.includes('Connecting') ||
               statusText?.includes('Starting') ||

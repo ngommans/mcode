@@ -14,7 +14,7 @@
     "build": "npm run build --workspaces --if-present",
     "build:prod": "npm run build:prod --workspaces --if-present",
     "build:npx": "npm run build --workspace=apps/web-client && npm run build --workspace=packages/npx-server && npm run copy:static --workspace=packages/npx-server",
-    "dev": "concurrently \"VITE_TCODE_BACKEND=ws://localhost:3000 npm run dev --workspace=apps/web-client\" \"npm run dev --workspace=packages/server\"",
+    "dev": "npm run copy:icons --workspace=tcode-web && concurrently \"VITE_TCODE_BACKEND=ws://localhost:3000 npm run dev --workspace=apps/web-client\" \"npm run dev --workspace=packages/server\"",
     "dev:web-debug": "VITE_TCODE_BACKEND=ws://localhost:3000 npm run dev --workspace=apps/web-client -- --debug",
     "start:web": "npm run start --workspace=apps/web-client",
     "start:server": "npm run start --workspace=packages/server",
@@ -33,7 +33,7 @@
     "depcheck": "npm exec --workspaces -- depcheck",
     "deps:audit": "npm audit",
     "check-updates": "npx npm-check-updates",
-    "prepare": "husky"
+    "prepare": "husky || true"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",

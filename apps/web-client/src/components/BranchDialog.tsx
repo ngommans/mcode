@@ -47,18 +47,18 @@ export function BranchDialog({ isOpen, branchInfo, onClose }: BranchDialogProps)
   return (
     <div className="modal modal-open" onClick={onClose}>
       <div
-        className="modal-box w-11/12 max-w-2xl bg-[#1e1e1e] border border-[#333]"
+        className="modal-box w-11/12 max-w-2xl bg-base-100 border border-neutral-focus"
         onClick={(e: JSX.TargetedMouseEvent<HTMLDivElement>) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="modal-header bg-[#2d2d2d] p-4 rounded-t-lg -mx-6 -mt-6 mb-4 flex justify-between items-center">
+        <div className="modal-header bg-base-200 p-4 rounded-t-lg -mx-6 -mt-6 mb-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <i className="codicon codicon-git-branch text-[#007acc] text-lg"></i>
+            <i className="codicon codicon-git-branch text-accent text-lg"></i>
             <h3 className="font-bold text-lg text-white">Branch Information</h3>
           </div>
           <button
             onClick={onClose}
-            className="btn btn-sm btn-circle btn-ghost text-[#cccccc] hover:bg-[#404040]"
+            className="btn btn-sm btn-circle btn-ghost"
           >
             ✕
           </button>
@@ -67,36 +67,36 @@ export function BranchDialog({ isOpen, branchInfo, onClose }: BranchDialogProps)
         {/* Body */}
         <div className="space-y-4">
           {/* Repository Section */}
-          <div className="bg-[#2d2d2d] p-4 rounded-lg border border-[#444]">
-            <h4 className="font-medium text-[#cccccc] mb-3 flex items-center gap-2">
-              <i className="codicon codicon-repo text-[#007acc]"></i>
+          <div className="bg-info p-4 rounded-lg border border-info-border">
+            <h4 className="font-medium text-secondary-content mb-3 flex items-center gap-2">
+              <i className="codicon codicon-repo text-accent"></i>
               Repository
             </h4>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[#aaaaaa]">Source (Git):</span>
+                <span className="text-tertiary">Source (Git):</span>
                 {branchInfo?.repository?.html_url ? (
                   <a
                     href={branchInfo.repository.html_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[#007acc] hover:text-[#005a9e] font-mono flex items-center gap-1"
+                    className="text-accent hover:text-accent-focus font-mono flex items-center gap-1"
                   >
                     {branchInfo.repository.full_name}
                     <i className="codicon codicon-link-external text-sm"></i>
                   </a>
                 ) : (
-                  <span className="text-[#cccccc] font-mono">
+                  <span className="text-secondary-content font-mono">
                     {branchInfo?.repository?.full_name || 'Unknown'}
                   </span>
                 )}
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[#aaaaaa]">Branch:</span>
-                <span className="text-[#cccccc] font-mono">{getBranchName()}</span>
+                <span className="text-tertiary">Branch:</span>
+                <span className="text-secondary-content font-mono">{getBranchName()}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[#aaaaaa]">State:</span>
+                <span className="text-tertiary">State:</span>
                 <span
                   className={`badge badge-outline ${
                     branchInfo?.state === 'Available' ? 'badge-success' : 'badge-info'
@@ -107,13 +107,13 @@ export function BranchDialog({ isOpen, branchInfo, onClose }: BranchDialogProps)
               </div>
               {branchInfo?.repository?.fork && (
                 <div className="flex items-center justify-between">
-                  <span className="text-[#aaaaaa]">Type:</span>
+                  <span className="text-tertiary">Type:</span>
                   <span className="badge badge-outline badge-warning">Fork</span>
                 </div>
               )}
               {branchInfo?.repository?.private && (
                 <div className="flex items-center justify-between">
-                  <span className="text-[#aaaaaa]">Visibility:</span>
+                  <span className="text-tertiary">Visibility:</span>
                   <span className="badge badge-outline badge-error">Private</span>
                 </div>
               )}
@@ -121,33 +121,33 @@ export function BranchDialog({ isOpen, branchInfo, onClose }: BranchDialogProps)
           </div>
 
           {/* Git Status Section */}
-          <div className="bg-[#2d2d2d] p-4 rounded-lg border border-[#444]">
-            <h4 className="font-medium text-[#cccccc] mb-3 flex items-center gap-2">
-              <i className="codicon codicon-git-commit text-[#007acc]"></i>
+          <div className="bg-info p-4 rounded-lg border border-info-border">
+            <h4 className="font-medium text-secondary-content mb-3 flex items-center gap-2">
+              <i className="codicon codicon-git-commit text-accent"></i>
               Git Status
             </h4>
             <div className="space-y-2">
               {branchInfo.git_status?.ahead !== undefined && (
                 <div className="flex items-center justify-between">
-                  <span className="text-[#aaaaaa] flex items-center gap-1">
-                    <i className="codicon codicon-arrow-up text-[#00ff00]"></i>
+                  <span className="text-tertiary flex items-center gap-1">
+                    <i className="codicon codicon-arrow-up text-success-bright"></i>
                     Commits ahead:
                   </span>
-                  <span className="text-[#cccccc] font-mono">{branchInfo.git_status?.ahead}</span>
+                  <span className="text-secondary-content font-mono">{branchInfo.git_status?.ahead}</span>
                 </div>
               )}
               {branchInfo.git_status?.behind !== undefined && (
                 <div className="flex items-center justify-between">
-                  <span className="text-[#aaaaaa] flex items-center gap-1">
-                    <i className="codicon codicon-arrow-down text-[#ff6b6b]"></i>
+                  <span className="text-base-content/60 flex items-center gap-1">
+                    <i className="codicon codicon-arrow-down text-error"></i>
                     Commits behind:
                   </span>
-                  <span className="text-[#cccccc] font-mono">{branchInfo.git_status?.behind}</span>
+                  <span className="text-base-content/80 font-mono">{branchInfo.git_status?.behind}</span>
                 </div>
               )}
               {branchInfo.git_status?.has_uncommitted_changes !== undefined && (
                 <div className="flex items-center justify-between">
-                  <span className="text-[#aaaaaa]">Uncommitted changes:</span>
+                  <span className="text-base-content/60">Uncommitted changes:</span>
                   <span
                     className={`badge badge-outline ${
                       branchInfo.git_status?.has_uncommitted_changes
@@ -161,7 +161,7 @@ export function BranchDialog({ isOpen, branchInfo, onClose }: BranchDialogProps)
               )}
               {branchInfo.git_status?.has_unpushed_changes !== undefined && (
                 <div className="flex items-center justify-between">
-                  <span className="text-[#aaaaaa]">Unpushed changes:</span>
+                  <span className="text-base-content/60">Unpushed changes:</span>
                   <span
                     className={`badge badge-outline ${
                       branchInfo.git_status?.has_unpushed_changes
@@ -177,21 +177,21 @@ export function BranchDialog({ isOpen, branchInfo, onClose }: BranchDialogProps)
           </div>
 
           {/* Timestamps Section */}
-          <div className="bg-[#2d2d2d] p-4 rounded-lg border border-[#444]">
-            <h4 className="font-medium text-[#cccccc] mb-3 flex items-center gap-2">
-              <i className="codicon codicon-clock text-[#007acc]"></i>
+          <div className="bg-base-200 p-4 rounded-lg border border-neutral-focus">
+            <h4 className="font-medium text-base-content/80 mb-3 flex items-center gap-2">
+              <i className="codicon codicon-clock text-accent"></i>
               Codespace Timeline
             </h4>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[#aaaaaa]">Created:</span>
-                <span className="text-[#cccccc] font-mono">
+                <span className="text-base-content/60">Created:</span>
+                <span className="text-base-content/80 font-mono">
                   {branchInfo?.created_at ? formatDate(branchInfo.created_at) : 'Unknown'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[#aaaaaa]">Last used:</span>
-                <span className="text-[#cccccc] font-mono">
+                <span className="text-base-content/60">Last used:</span>
+                <span className="text-base-content/80 font-mono">
                   {branchInfo?.last_used_at ? formatDate(branchInfo.last_used_at) : 'Unknown'}
                 </span>
               </div>
@@ -200,10 +200,10 @@ export function BranchDialog({ isOpen, branchInfo, onClose }: BranchDialogProps)
         </div>
 
         {/* Footer */}
-        <div className="modal-action bg-[#2d2d2d] p-4 rounded-b-lg -mx-6 -mb-6 mt-4 flex justify-end">
+        <div className="modal-action bg-base-200 p-4 rounded-b-lg -mx-6 -mb-6 mt-4 flex justify-end">
           <button
             onClick={onClose}
-            className="btn btn-primary bg-[#007acc] hover:bg-[#005a9e] border-none"
+            className="btn btn-primary border-none"
           >
             Close
           </button>

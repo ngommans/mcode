@@ -90,7 +90,7 @@ module.exports = defineConfig([{
         "no-undef": "error",
         "no-redeclare": "error",
     },
-}, globalIgnores(["**/dist/", "**/node_modules/", "**/*.d.ts"]), {
+}, globalIgnores(["**/dist/", "**/node_modules/", "**/*.d.ts", "**/vite.config.ts"]), {
     files: ["**/*.test.ts", "**/*.spec.ts", "**/test/**/*.ts", "**/__tests__/**/*.ts"],
 
     rules: {
