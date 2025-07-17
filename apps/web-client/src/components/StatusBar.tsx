@@ -1,4 +1,5 @@
 import type { VNode } from 'preact';
+import { useState, useEffect } from 'preact/hooks';
 
 type Status = 'connected' | 'disconnected' | 'connecting' | 'reconnecting' | 'error';
 
@@ -71,6 +72,24 @@ export function StatusBar({
   const config = statusConfig[status] || statusConfig.disconnected;
   const displayText = statusText || config.text;
 
+  // Theme toggle state
+  const [isDarkMode, setIsDarkMode] = useState(true);
+
+  // Initialize theme from document attribute
+  useEffect(() => {
+    const htmlElement = document.querySelector('html');
+    const currentTheme = htmlElement?.getAttribute('data-theme');
+    setIsDarkMode(currentTheme === 'vscode' || currentTheme === null);
+  }, []);
+
+  // Toggle theme function
+  const toggleTheme = () => {
+    const htmlElement = document.querySelector('html');
+    const newTheme = isDarkMode ? 'vscode-light' : 'vscode';
+    htmlElement?.setAttribute('data-theme', newTheme);
+    setIsDarkMode(!isDarkMode);
+  };
+
   const handleStatusClick = () => {
     if (status === 'disconnected' || status === 'error') {
       onOpenConnectionModal();
@@ -89,11 +108,11 @@ export function StatusBar({
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- Preact JSX elements are properly typed but ESLint can't infer this
   return (
-    <div className="flex items-center bg-[#252526] text-[#cccccc] font-mono text-xs h-9 w-full">
+    <div className="flex items-center bg-neutral text-secondary-content font-mono text-xs h-9 w-full">
       {/* Left side: Connection, Branch, and Ports buttons connected */}
       <div className="flex items-center">
         <button
-          className="flex items-center gap-2 px-3 py-1 h-9 border-r border-[#333] hover:bg-[#404040]"
+          className="flex items-center gap-2 px-3 py-1 h-9 border-r border-base-300 hover:bg-base-300"
           onClick={handleStatusClick}
           style={{
             backgroundColor: config.bgColor,
@@ -109,7 +128,7 @@ export function StatusBar({
 
         {gitStatus && (
           <button
-            className="flex items-center gap-2 px-3 py-1 h-9 bg-[#2d2d2d] hover:bg-[#404040] border-r border-[#333]"
+            className="flex items-center gap-2 px-3 py-1 h-9 bg-info hover:bg-base-300 border-r border-base-300"
             onClick={handleBranchClick}
           >
             <i className="codicon codicon-git-branch"></i>
@@ -133,7 +152,7 @@ export function StatusBar({
 
         {portCount > 0 && (
           <button
-            className="flex items-center gap-2 px-3 py-1 h-9 bg-[#2d2d2d] hover:bg-[#404040] border-r border-[#333]"
+            className="flex items-center gap-2 px-3 py-1 h-9 bg-info hover:bg-base-300 border-r border-base-300"
             onClick={handleNetworkClick}
           >
             <i className="codicon codicon-radio-tower"></i>
@@ -142,8 +161,16 @@ export function StatusBar({
         )}
       </div>
 
-      {/* Right side: Spacer */}
+      {/* Right side: Theme toggle button */}
       <div className="flex-1"></div>
+      <button
+        className="flex items-center justify-center px-2 py-1 h-9 bg-info hover:bg-base-300 border-l border-base-300"
+        onClick={toggleTheme}
+        title={isDarkMode ? 'Switch to light theme' : 'Switch to dark theme'}
+        style={{ zIndex: 1000 }}
+      >
+        <i className={`codicon ${isDarkMode ? 'codicon-circle-large-outline' : 'codicon-circle-large-filled'}`}></i>
+      </button>
     </div>
   );
 }

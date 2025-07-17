@@ -4,7 +4,7 @@
   "description": "Progressive Web App client for Terminal Code (tcode)",
   "type": "module",
   "scripts": {
-    "copy:icons": "mkdir -p ./public && cp ../../docs/tcode-192x192.png ../../docs/tcode-512x512.png ../../docs/favicon.ico ./public/",
+    "copy:icons": "mkdir -p ./public && cp ../../docs/tcode-192x192.png ./public/pwa-192x192.png && cp ../../docs/tcode-512x512.png ./public/pwa-512x512.png && cp ../../docs/favicon.ico ./public/",
     "prebuild": "npm run copy:icons",
     "build": "vite build",
     "build:prod": "vite build --mode production",
@@ -21,17 +21,15 @@
   "dependencies": {
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
-    "postcss-import": "^16.1.1",
     "preact": "^10.26.9"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.2",
+    "@tailwindcss/vite": "^4.1.11",
     "@types/dom-screen-wake-lock": "^1.0.3",
     "@vitest/coverage-v8": "^3.2.4",
     "@vitest/ui": "^3.2.4",
-    "autoprefixer": "^10.4.21",
     "daisyui": "^5.0.46",
-    "postcss": "^8.5.6",
     "rimraf": "^6.0.1",
     "tailwindcss": "^4.1.11",
     "vite": "^7.0.4",

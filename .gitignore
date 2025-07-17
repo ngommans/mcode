@@ -19,6 +19,7 @@ packages/standalone/static
 
 # Generated PWA icons and favicon (copied from docs/)
 apps/web-client/public/tcode*.png
+apps/web-client/public/pwa*.png
 apps/web-client/public/favicon.ico
 
 # Claude Code files

@@ -62,29 +62,29 @@ export function PortsDialog({
   return (
     <div className="modal modal-open" onClick={onClose}>
       <div
-        className="modal-box w-11/12 max-w-4xl bg-[#1e1e1e] border border-[#333]"
+        className="modal-box w-11/12 max-w-4xl bg-base-100 border border-neutral-focus"
         onClick={(e: JSX.TargetedMouseEvent<HTMLDivElement>) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="modal-header bg-[#2d2d2d] p-4 rounded-t-lg -mx-6 -mt-6 mb-4 flex justify-between items-center">
+        <div className="modal-header bg-base-200 p-4 rounded-t-lg -mx-6 -mt-6 mb-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <i className="codicon codicon-radio-tower text-[#007acc] text-lg"></i>
+            <i className="codicon codicon-radio-tower text-accent text-lg"></i>
             <h3 className="font-bold text-lg text-white">Port Forwarding</h3>
-            <div className="badge badge-outline text-[#cccccc]">
+            <div className="badge badge-outline text-base-content/80">
               {filteredPortCount} {filteredPortCount === 1 ? 'port' : 'ports'}
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={onRefresh}
-              className="btn btn-sm btn-ghost text-[#cccccc] hover:bg-[#404040]"
+              className="btn btn-sm btn-ghost"
               title="Refresh ports"
             >
               <i className="codicon codicon-refresh"></i>
             </button>
             <button
               onClick={onClose}
-              className="btn btn-sm btn-circle btn-ghost text-[#cccccc] hover:bg-[#404040]"
+              className="btn btn-sm btn-circle btn-ghost"
             >
               ✕
             </button>
@@ -95,9 +95,9 @@ export function PortsDialog({
         <div className="max-h-96 overflow-y-auto">
           {filteredPortCount === 0 ? (
             <div className="text-center py-8">
-              <i className="codicon codicon-radio-tower text-4xl text-[#666] mb-4 block"></i>
-              <h4 className="text-lg font-medium text-[#cccccc] mb-2">No ports forwarded</h4>
-              <p className="text-[#aaaaaa] text-sm">
+              <i className="codicon codicon-radio-tower text-4xl text-disabled mb-4 block"></i>
+              <h4 className="text-lg font-medium text-secondary-content mb-2">No ports forwarded</h4>
+              <p className="text-tertiary text-sm">
                 Start a service in your codespace to see forwarded ports here.
               </p>
             </div>
@@ -107,19 +107,19 @@ export function PortsDialog({
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- Preact JSX elements in map are properly typed
                 <div
                   key={port.portNumber}
-                  className="border border-[#444] rounded-lg p-4 bg-[#2d2d2d] hover:bg-[#333] transition-colors"
+                  className="border border-info-border rounded-lg p-4 bg-info hover:bg-base-300 transition-colors"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <i className={`codicon ${getPortIcon(port)} text-[#007acc] text-lg`}></i>
+                      <i className={`codicon ${getPortIcon(port)} text-accent text-lg`}></i>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-[#cccccc] font-medium">
+                          <span className="font-mono text-secondary-content font-medium">
                             Port {port.portNumber}
                           </span>
                           <span className={getPortTypeBadge(port)}>{getPortTypeLabel(port)}</span>
                           {port.protocol && (
-                            <span className="badge badge-outline badge-sm text-[#aaaaaa]">
+                            <span className="badge badge-outline badge-sm text-tertiary">
                               {port.protocol.toUpperCase()}
                             </span>
                           )}
@@ -133,7 +133,7 @@ export function PortsDialog({
                         <button
                           key={index}
                           onClick={() => handlePortClick(uri)}
-                          className="btn btn-sm btn-primary bg-[#007acc] hover:bg-[#005a9e] border-none text-white flex items-center gap-2"
+                          className="btn btn-sm btn-primary text-white flex items-center gap-2"
                           title={`Open ${uri} in new window`}
                         >
                           <span className="text-sm">Open in Browser</span>
@@ -141,7 +141,7 @@ export function PortsDialog({
                         </button>
                       ))}
                       {getAccessibleUrls(port).length === 0 && (
-                        <div className="text-xs text-[#666] italic">No standard port URL</div>
+                        <div className="text-xs text-disabled italic">No standard port URL</div>
                       )}
                     </div>
                   </div>
@@ -152,14 +152,14 @@ export function PortsDialog({
         </div>
 
         {/* Footer */}
-        <div className="modal-action bg-[#2d2d2d] p-4 rounded-b-lg -mx-6 -mb-6 mt-4 flex justify-between items-center">
-          <div className="text-sm text-[#aaaaaa]">
+        <div className="modal-action bg-base-200 p-4 rounded-b-lg -mx-6 -mb-6 mt-4 flex justify-between items-center">
+          <div className="text-sm text-base-content/60">
             <i className="codicon codicon-info mr-2"></i>
             Click URLs to open applications in new windows
           </div>
           <button
             onClick={onClose}
-            className="btn btn-primary bg-[#007acc] hover:bg-[#005a9e] border-none"
+            className="btn btn-primary border-none"
           >
             Close
           </button>
