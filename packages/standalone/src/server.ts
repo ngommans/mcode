@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import { fileURLToPath } from 'url';
@@ -23,7 +24,12 @@ const staticPath = join(__dirname, '..', 'static');
 app.use(express.static(staticPath));
 
 // SPA fallback - serve index.html for all non-API routes
-app.get('*', (req, res) => {
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+});
+
+app.get('*', limiter, (req, res) => {
   res.sendFile(join(staticPath, 'index.html'));
 });
 
