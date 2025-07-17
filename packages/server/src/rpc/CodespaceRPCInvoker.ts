@@ -8,6 +8,7 @@ import * as grpc from '@grpc/grpc-js';
 import * as net from 'net';
 import protobuf from 'protobufjs';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import type { TunnelRelayTunnelClient } from '@microsoft/dev-tunnels-connections';
 import { TraceLevel } from '@microsoft/dev-tunnels-ssh';
@@ -766,7 +767,8 @@ function createInvokerInterface(invoker: InvokerImpl): CodespaceRPCInvoker {
     },
     
     async startSSHServer(): Promise<SSHServerResult> {
-      const sessionId = `ssh-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const randomSuffix = crypto.randomBytes(6).toString('base64url'); // Generate a secure random string
+      const sessionId = `ssh-${Date.now()}-${randomSuffix}`;
       return this.startSSHServerWithOptions({ sessionId });
     },
     
