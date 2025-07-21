@@ -41,7 +41,7 @@
     "bcrypt-pbkdf": "^1.0.2",
     "combined-stream": "^1.0.8",
     "dotenv": "^16.6.1",
-    "express": "^4.21.2",
+    "express": "^5.1.0",
     "node-pty": "^1.0.0",
     "protobufjs": "^7.5.3",
     "ssh2": "^1.16.0",
@@ -52,7 +52,7 @@
     "ws": "^8.18.3"
   },
   "devDependencies": {
-    "@types/express": "^4.17.23",
+    "@types/express": "^5.0.3",
     "@types/ssh2": "^1.15.5",
     "@vitest/coverage-v8": "^3.2.4",
     "@types/ws": "^8.18.1",
